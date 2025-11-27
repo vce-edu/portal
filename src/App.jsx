@@ -1,0 +1,38 @@
+import { Routes, Route } from "react-router-dom";
+import Layout from "./Layout/Layout";
+import Dashboard from "./Pages/Dashboard";
+import Students from "./Pages/Students";
+import Performance from "./Pages/Performance";
+import Revenue from "./Pages/Revenu";
+import Branches from "./Pages/branches";
+import Login from "./Pages/Login";
+import ProtectedRoute from "./components/ProtectedRoute";
+import Fees from "./Pages/fees";
+import Status from "./Pages/Status";
+
+export default function App() {
+  return (
+    <Routes>
+      {/* Public */}
+      <Route path="/" element={<Login />} />
+      <Route path="/login" element={<Login />} />
+
+      {/* Protected */}
+      <Route
+        element={
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/branches" element={<Branches />} />
+        <Route path="/revenue" element={<Revenue />} />
+        <Route path="/students" element={<Students />} />
+        <Route path="/fees" element={<Fees />} />
+        <Route path="/status" element={<Status />} />
+        <Route path="/performance" element={<Performance />} />
+      </Route>
+    </Routes>
+  );
+}
