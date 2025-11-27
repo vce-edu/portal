@@ -10,7 +10,7 @@ export const menuConfig = {
   ],
 
   manager: [
-    { name: "Dashboard", route: "/" },
+    { name: "Dashboard", route: "/dashboard" },
     { name: "Revenue Analysis", route: "/revenue" },
     { name: "Student Performance", route: "/performance" },
     { name: "Add and View Students", route: "/students" },
@@ -19,7 +19,7 @@ export const menuConfig = {
   ],
 
   staff: [
-    { name: "Dashboard", route: "/" },
+    { name: "Dashboard", route: "/dashboard" },
     { name: "Student Performance", route: "/performance" },
   ],
 };
