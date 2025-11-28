@@ -254,9 +254,8 @@ const BranchTable = ({ title, data }) => {
                     {item.name}
                   </td>
                   <td
-                    className={`border border-gray-400 px-4 py-2 font-semibold ${
-                      item.pending ? "text-red-600" : "text-green-600"
-                    }`}
+                    className={`border border-gray-400 px-4 py-2 font-semibold ${item.pending ? "text-red-600" : "text-green-600"
+                      }`}
                   >
                     {item.pending ? "Pending" : "Cleared"}
                   </td>
@@ -275,12 +274,16 @@ const BranchTable = ({ title, data }) => {
                   </td>
 
                   <td className="border border-gray-400 px-4 py-2 font-semibold">
-                    {isPaidThisMonth ? (
-                      <span className="text-green-600">Paid</span>
-                    ) : (
-                      <span className="text-red-600">Upcoming</span>
-                    )}
+                    {
+                      // If pending cleared → auto Paid
+                      !item.pending
+                        ? <span className="text-green-600">Paid</span>
+                        : (item.last_paid && isSameMonth(item.last_paid))
+                          ? <span className="text-green-600">Paid</span>
+                          : <span className="text-red-600">Upcoming</span>
+                    }
                   </td>
+
                 </tr>
               );
             })}

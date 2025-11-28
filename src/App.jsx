@@ -33,6 +33,13 @@ export default function App() {
         <Route path="/fees" element={<Fees />} />
         <Route path="/status" element={<Status />} />
         <Route path="/performance" element={<Performance />} />
+        <Route path="portal/dashboard" element={<Dashboard />} />
+        <Route path="portal/branches" element={<Branches />} />
+        <Route path="portal/revenue" element={<Revenue />} />
+        <Route path="portal/students" element={<Students />} />
+        <Route path="portal/fees" element={<Fees />} />
+        <Route path="portal/status" element={<Status />} />
+        <Route path="portal/performance" element={<Performance />} />
       </Route>
     </Routes>
   );
