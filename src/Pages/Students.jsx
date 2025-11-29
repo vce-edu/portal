@@ -247,7 +247,7 @@ export default function Students() {
     <div className="p-6 max-w-6xl mx-auto">
       {/* Top header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-extrabold text-gray-900">Add and View Students</h1>
+        <h1 className="text-4xl font-extrabold text-gray-900">Add and View Students</h1>
 
         <div className="flex items-center gap-3">
           <button

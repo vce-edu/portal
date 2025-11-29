@@ -57,7 +57,7 @@ export default function Status() {
 
   return (
     <div className="p-8 text-black">
-      <h1 className="text-3xl font-semibold mb-6">Fees Status</h1>
+      <h1 className="text-4xl font-bold mb-6">Fees Status</h1>
 
       {/* If admin with access to all branches */}
       {branch === "all" && (
