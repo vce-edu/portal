@@ -149,7 +149,7 @@ function Fees() {
             <input
               name="roll"
               placeholder="Roll Number"
-              value={form.roll}
+              value={form.roll.toLowerCase()}
               className="w-full p-2 mb-2 bg-gray-100 text-black rounded-md border border-purple-700"
               onChange={handleChange}
             />
@@ -186,7 +186,7 @@ function Fees() {
             <input
               name="receipt"
               placeholder="Receipt Number"
-              value={form.receipt}
+              value={form.receipt.toLowerCase()}
               className="w-full p-2 mb-2 bg-gray-100 text-black rounded-md border border-purple-700"
               onChange={handleChange}
             />
