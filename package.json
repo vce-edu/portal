@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "https://vce-edu.github.io/portal",
+  "homepage": "https://staff.vintecheducation.org",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
