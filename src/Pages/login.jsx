@@ -26,7 +26,7 @@ export default function Login() {
     setUser(data.user);
     await fetchRole(data.user.id); 
     
-    navigate("/dashboard");
+    navigate("/portal/dashboard");
 
   };
   if (loading) return <Loader/>
