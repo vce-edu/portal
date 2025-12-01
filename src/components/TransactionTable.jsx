@@ -5,37 +5,70 @@ function TransactionTable() {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
-  const {branch} = useAuth();
+  const { branch, role } = useAuth();
+  const [editForm, setEditForm] = useState(null);
+  const handleEdit = (t) => {
+    setEditForm({
+      id: t.id,
+      receipt_no: t.receipt_no,
+      roll_no: t.roll_no,
+      student_name: t.student_name,
+      amount_paid: t.amount_paid,
+      paid_on: t.paid_on,
+    });
+  };
+  const handleUpdate = async () => {
+    const { id, ...fields } = editForm;
+
+    const { error } = await supabase
+      .from("transaction")
+      .update(fields)
+      .eq("id", id);
+
+    if (error) {
+      alert("Update failed: " + error.message);
+      return;
+    }
+
+    // Update UI without re-fetch
+    setTransactions((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, ...fields } : t))
+    );
+
+    setEditForm(null);
+    alert("Transaction updated successfully!");
+  };
+
 
   function getBranchPrefix(branch) {
-  if (!branch || branch === "all") return "";
+    if (!branch || branch === "all") return "";
 
-  return branch.charAt(0).toLowerCase() + "_";
-}
-
-const b_prefix = getBranchPrefix(branch);
-  // Fetch transaction data from Supabase
-const fetchTransactions = async () => {
-  setLoading(true);
-  const { data, error } = await supabase
-    .from("transaction")
-    .select("*")
-    .order("id", { ascending: false });
-
-  if (error) {
-    console.error("Error fetching transactions:", error.message);
-  } else {
-    if (b_prefix) {
-      const filtered = data.filter((t) =>
-        t.roll_no?.toString().startsWith(b_prefix)
-      );
-      setTransactions(filtered);
-    } else {
-      setTransactions(data);
-    }
+    return branch.charAt(0).toLowerCase() + "_";
   }
-  setLoading(false);
-};
+
+  const b_prefix = getBranchPrefix(branch);
+  // Fetch transaction data from Supabase
+  const fetchTransactions = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("transaction")
+      .select("*")
+      .order("id", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching transactions:", error.message);
+    } else {
+      if (b_prefix) {
+        const filtered = data.filter((t) =>
+          t.roll_no?.toString().startsWith(b_prefix)
+        );
+        setTransactions(filtered);
+      } else {
+        setTransactions(data);
+      }
+    }
+    setLoading(false);
+  };
 
 
   useEffect(() => {
@@ -68,7 +101,7 @@ const fetchTransactions = async () => {
           <table className="w-full table-auto border-collapse">
             <thead>
               <tr className="bg-purple-700 text-white">
-                <th className="px-4 py-2">Transaction ID</th>
+                <th className="px-4 py-2">Receipt Number</th>
                 <th className="px-4 py-2">Roll Number</th>
                 <th className="px-4 py-2">Student's Name</th>
                 <th className="px-4 py-2">Amount</th>
@@ -79,11 +112,12 @@ const fetchTransactions = async () => {
             <tbody>
               {transactions.map((t) => (
                 <tr key={t.id} className="text-center border-b">
-                  <td className="px-4 py-2">{t.id}</td>
+                  <td className="px-4 py-2">{t.receipt_no}</td>
                   <td className="px-4 py-2">{t.roll_no}</td>
                   <td className="px-4 py-2">{t.student_name}</td>
                   <td className="px-4 py-2">₹{t.amount_paid}</td>
                   <td className="px-4 py-2">{t.paid_on}</td>
+
                   <td className="px-4 py-2 space-x-2">
                     <button
                       className="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-400"
@@ -91,6 +125,16 @@ const fetchTransactions = async () => {
                     >
                       View
                     </button>
+
+                    {role === "owner" && (
+                      <button
+                        className="px-2 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-400"
+                        onClick={() => handleEdit(t)}
+                      >
+                        Edit
+                      </button>
+                    )}
+
                     <button
                       className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-400"
                       onClick={() => handleDelete(t.id)}
@@ -100,6 +144,7 @@ const fetchTransactions = async () => {
                   </td>
                 </tr>
               ))}
+
               {transactions.length === 0 && (
                 <tr>
                   <td colSpan="6" className="py-4 px-70 text-gray-500">
@@ -108,6 +153,8 @@ const fetchTransactions = async () => {
                 </tr>
               )}
             </tbody>
+
+
           </table>
         </div>
       )}
@@ -134,6 +181,83 @@ const fetchTransactions = async () => {
           </div>
         </div>
       )}
+      {editForm && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white rounded-xl p-6 w-11/12 md:w-1/2 lg:w-1/3 shadow-lg relative">
+            <h2 className="text-xl font-bold mb-4">Edit Transaction</h2>
+            <button
+              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+              onClick={() => setEditForm(null)}
+            >
+              ✖
+            </button>
+
+            <div className="space-y-3">
+              {/* Receipt No */}
+              <input
+                className="border p-2 w-full rounded"
+                value={editForm.receipt_no}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, receipt_no: e.target.value })
+                }
+                placeholder="Receipt Number"
+              />
+
+              {/* Roll No */}
+              <input
+                className="border p-2 w-full rounded"
+                value={editForm.roll_no}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, roll_no: e.target.value })
+                }
+                placeholder="Roll Number"
+              />
+
+              {/* Student Name */}
+              <input
+                className="border p-2 w-full rounded"
+                value={editForm.student_name}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, student_name: e.target.value })
+                }
+                placeholder="Student Name"
+              />
+
+              {/* Amount with Rupee sign */}
+              <div className="border p-2 w-full rounded flex items-center">
+                <span className="mr-2">₹</span>
+                <input
+                  className="w-full outline-none"
+                  type="number"
+                  value={editForm.amount_paid}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, amount_paid: e.target.value })
+                  }
+                  placeholder="Amount"
+                />
+              </div>
+
+              {/* Paid On */}
+              <input
+                type="date"
+                className="border p-2 w-full rounded"
+                value={editForm.paid_on}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, paid_on: e.target.value })
+                }
+              />
+            </div>
+
+            <button
+              className="mt-4 w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-500"
+              onClick={handleUpdate}
+            >
+              Save Changes
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

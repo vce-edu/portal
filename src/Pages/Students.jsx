@@ -216,7 +216,7 @@ export default function Students() {
       duration: student.duration,
       fee_month: student.fee_month,
       phone_number: student.phone_number,
-      admission_date: student.admission_date,
+      admission_date: student.addmission_date,
       branch: student.branch,
     });
 
@@ -493,6 +493,10 @@ export default function Students() {
 
             <div className="space-y-3">
               <input className="border rounded-lg px-3 py-2 w-full"
+                value={editForm.roll_number}
+                onChange={(e) => setEditForm({ ...editForm, roll_number: e.target.value })}
+              />
+              <input className="border rounded-lg px-3 py-2 w-full"
                 value={editForm.student_name}
                 onChange={(e) => setEditForm({ ...editForm, student_name: e.target.value })}
               />
@@ -513,14 +517,27 @@ export default function Students() {
               />
 
               <div className="flex gap-2">
-                <input className="border rounded-lg px-3 py-2 flex-1"
+                <input className="border rounded-lg px-3 py-2 w-32"
                   value={editForm.duration}
                   onChange={(e) => setEditForm({ ...editForm, duration: e.target.value })}
                 />
+                <div className="relative w-32">
+                  <span className="absolute inset-y-0 left-2 flex items-center text-black">
+                    ₹
+                  </span>
+
+                  <input
+                    className="border rounded-lg pl-6 pr-3 py-2 w-full"
+                    value={editForm.fee_month}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, fee_month: e.target.value })
+                    }
+                  />
+                </div>
 
                 <input className="border rounded-lg px-3 py-2 w-32"
-                  value={editForm.fee_month}
-                  onChange={(e) => setEditForm({ ...editForm, fee_month: e.target.value })}
+                  value={editForm.admission_date}
+                  onChange={(e) => setEditForm({ ...editForm, admission_date: e.target.value })}
                 />
               </div>
 

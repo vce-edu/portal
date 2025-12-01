@@ -10,176 +10,114 @@ import {
   ResponsiveContainer
 } from "recharts";
 
-
 export default function Revenue() {
-  const [monthlyRevenue, setMonthlyRevenue] = useState(0);
-  const [activeStudents, setActiveStudents] = useState(0);
-  const [activeBranches, setActiveBranches] = useState(0);
-  const [lastMonthRevenue, setLastMonthRevenue] = useState(0);
-  const [lastMonthStudents, setLastMonthStudents] = useState(0);
+  // STATE
+  const [stats, setStats] = useState({
+    monthlyRevenue: 0,
+    lastMonthRevenue: 0,
+    activeStudents: 0,
+    lastMonthStudents: 0,
+    activeBranches: 0
+  });
+
   const [branchRevenue, setBranchRevenue] = useState({});
   const [expectedRevenue, setExpectedRevenue] = useState({});
+
+  // GET YEAR + MONTH
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+
+  // --------------------------------------------------------
+  // UNIVERSAL FETCHER
+  // --------------------------------------------------------
+  const fetchRPC = async (fn, params = {}) => {
+    const { data, error } = await supabase.rpc(fn, params);
+    if (error) {
+      console.error(`RPC Error (${fn}):`, error);
+      return null;
+    }
+    return data;
+  };
+
+  // --------------------------------------------------------
+  // LOAD EVERYTHING IN ONE EFFECT
+  // --------------------------------------------------------
   useEffect(() => {
-    const fetchBranchRevenue = async () => {
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = now.getMonth() + 1;
+    const loadAll = async () => {
+      // parallel API calls (fast!)
+      const [
+        branchRev,
+        expectedRev,
+        lastMonthRev,
+        lastMonthSt,
+        activeSt,
+        activeMonthRev
+      ] = await Promise.all([
+        fetchRPC("get_branch_wise_revenue", { p_year: year, p_month: month }),
+        fetchRPC("get_expected_revenue_current_month"),
+        fetchRPC("monthly_revenue_last_month", { p_year: year, p_month: month }),
+        fetchRPC("count_active_students_last_month"),
+        fetchRPC("count_active_students"),
+        fetchRPC("get_monthly_revenue", { p_year: year, p_month: month })
+      ]);
 
-      const { data, error } = await supabase.rpc(
-        "get_branch_wise_revenue",
-        { p_year: year, p_month: month }
-      );
-
-      if (!error && data) setBranchRevenue(data);
-    };
-
-    fetchBranchRevenue();
-  }, []);
-
-  useEffect(() => {
-    const fetchExpectedRevenue = async () => {
-      const { data, error } = await supabase.rpc(
-        "get_expected_revenue_current_month"
-      );
-
-      if (error) {
-        console.error("Error fetching expected revenue:", error);
-      } else {
-        setExpectedRevenue(data);
-      }
-    };
-
-    fetchExpectedRevenue();
-  }, []);
-  useEffect(() => {
-    const fetchMonthlyRevenue = async () => {
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = now.getMonth() + 1;
-
-      const { data, error } = await supabase.rpc("monthly_revenue_last_month", {
-        p_year: year,
-        p_month: month,
-      });
-
-      if (error) {
-        console.error("Error fetching monthly revenue:", error);
-        return;
-      }
-
-      setLastMonthRevenue(data);
-    };
-
-    fetchMonthlyRevenue();
-  }, []);
-  useEffect(() => {
-    const fetchLastMonthStudents = async () => {
-      const { data, error } = await supabase.rpc("count_active_students_last_month");
-
-      if (!error) setLastMonthStudents(data);
-    };
-
-    fetchLastMonthStudents();
-  }, []);
-
-  useEffect(() => {
-    const fetchActiveBranches = async () => {
-      const { data, error } = await supabase
+      // fetch branches only once
+      const { data: branchData } = await supabase
         .from("users")
         .select("branch")
         .neq("branch", "all");
 
-      if (error) {
-        console.error("Error fetching active branches:", error);
-        return;
-      }
+      setBranchRevenue(branchRev || {});
+      setExpectedRevenue(expectedRev || {});
 
-      // Count unique branches
-      const count = data.length;
-      setActiveBranches(count);
-    };
-
-    fetchActiveBranches();
-  }, []);
-
-  useEffect(() => {
-    const fetchActiveStudents = async () => {
-      const { data, error } = await supabase.rpc("count_active_students");
-
-      if (error) {
-        console.error("Error fetching active students:", error);
-        return;
-      }
-
-      setActiveStudents(data);
-    };
-
-    fetchActiveStudents();
-  }, []);
-
-  useEffect(() => {
-    const fetchMonthlyRevenue = async () => {
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = now.getMonth() + 1;
-
-      const { data, error } = await supabase.rpc("get_monthly_revenue", {
-        p_year: year,
-        p_month: month,
+      setStats({
+        monthlyRevenue: activeMonthRev || 0,
+        lastMonthRevenue: lastMonthRev || 0,
+        activeStudents: activeSt || 0,
+        lastMonthStudents: lastMonthSt || 0,
+        activeBranches: branchData?.length || 0
       });
-
-      if (error) {
-        console.error("Error fetching monthly revenue:", error);
-        return;
-      }
-
-      setMonthlyRevenue(data);
     };
 
-    fetchMonthlyRevenue();
+    loadAll();
   }, []);
 
+  // --------------------------------------------------------
+  // GROWTH CALCULATIONS
+  // --------------------------------------------------------
   const revenueGrowth =
-    lastMonthRevenue === 0
-      ? 100 // avoid divide by zero
-      : ((monthlyRevenue - lastMonthRevenue) / lastMonthRevenue) * 100;
-  const studentGrowth =
-    lastMonthStudents === 0
+    stats.lastMonthRevenue === 0
       ? 100
-      : ((activeStudents - lastMonthStudents) / lastMonthStudents) * 100;
+      : ((stats.monthlyRevenue - stats.lastMonthRevenue) /
+          stats.lastMonthRevenue) *
+        100;
+
+  const studentGrowth =
+    stats.lastMonthStudents === 0
+      ? 100
+      : ((stats.activeStudents - stats.lastMonthStudents) /
+          stats.lastMonthStudents) *
+        100;
+
   const renderGrowth = (value) => {
-    if (value > 0) {
-      return (
-        <p className="text-green-600 font-semibold mt-2">
-          ▲ {value.toFixed(2)}%
-        </p>
-      );
-    }
-
-    if (value < 0) {
-      return (
-        <p className="text-red-600 font-semibold mt-2">
-          ▼ {value.toFixed(2)}%
-        </p>
-      );
-    }
-
-    return (
-      <p className="text-gray-500 font-semibold mt-2">
-        • Stable
-      </p>
-    );
+    if (value > 0)
+      return <p className="text-green-600 font-semibold mt-2">▲ {value.toFixed(2)}%</p>;
+    if (value < 0)
+      return <p className="text-red-600 font-semibold mt-2">▼ {value.toFixed(2)}%</p>;
+    return <p className="text-gray-500 font-semibold mt-2">• Stable</p>;
   };
 
-      const chartData = [
-      { name: "Last Month", revenue: lastMonthRevenue || 0 },
-      { name: "This Month", revenue: monthlyRevenue || 0 }
-    ];
+  const chartData = [
+    { name: "Last Month", revenue: stats.lastMonthRevenue },
+    { name: "This Month", revenue: stats.monthlyRevenue }
+  ];
 
+  // --------------------------------------------------------
+  // UI
+  // --------------------------------------------------------
   return (
     <div className="space-y-8">
-
-      {/* Page Title */}
       <div>
         <h1 className="text-5xl font-extrabold tracking-tight mb-2">
           Revenue Analysis
@@ -189,33 +127,28 @@ export default function Revenue() {
         </p>
       </div>
 
-      {/* Quick Stats Row */}
+      {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Card 1 */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border">
           <p className="text-gray-500 text-sm">Total Revenue</p>
-          <h2 className="text-3xl font-bold mt-1">{monthlyRevenue}</h2>
+          <h2 className="text-3xl font-bold mt-1">{stats.monthlyRevenue}</h2>
           {renderGrowth(revenueGrowth)}
         </div>
 
-        {/* Card 2 */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border">
           <p className="text-gray-500 text-sm">Active Students</p>
-          <h2 className="text-3xl font-bold mt-1">{activeStudents}</h2>
+          <h2 className="text-3xl font-bold mt-1">{stats.activeStudents}</h2>
           {renderGrowth(studentGrowth)}
-
-
         </div>
 
-        {/* Card 3 */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border">
           <p className="text-gray-500 text-sm">Branch Count</p>
-          <h2 className="text-3xl font-bold mt-1">{activeBranches}</h2>
+          <h2 className="text-3xl font-bold mt-1">{stats.activeBranches}</h2>
           <p className="text-purple-600 font-semibold mt-2">Stable</p>
         </div>
       </div>
 
-      {/* Chart Placeholder */}
+      {/* Chart */}
       <div className="bg-white p-8 rounded-2xl shadow-sm border">
         <h3 className="text-2xl font-bold mb-4">Revenue Trends</h3>
 
@@ -236,10 +169,9 @@ export default function Revenue() {
             </LineChart>
           </ResponsiveContainer>
         </div>
-
       </div>
 
-      {/* Table Placeholder */}
+      {/* Branch Table */}
       <div className="bg-white p-8 rounded-2xl shadow-sm border">
         <h3 className="text-2xl font-bold mb-4">Branch-Wise Revenue</h3>
 
@@ -249,7 +181,7 @@ export default function Revenue() {
               <tr>
                 <th className="p-4 text-left text-gray-600 font-semibold">Branch</th>
                 <th className="p-4 text-left text-gray-600 font-semibold">Revenue</th>
-                <th className="p-4 text-left text-gray-600 font-semibold">Expected evenue</th>
+                <th className="p-4 text-left text-gray-600 font-semibold">Expected Revenue</th>
               </tr>
             </thead>
 
@@ -264,20 +196,15 @@ export default function Revenue() {
                   </td>
                 </tr>
               ) : (
-                Object.entries(branchRevenue).map(([branch, revenue], index) => (
+                Object.entries(branchRevenue).map(([branch, revenue], i) => (
                   <tr
                     key={branch}
-                    className={`border-b transition ${index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                      } hover:bg-purple-50`}
+                    className={`border-b ${
+                      i % 2 === 0 ? "bg-white" : "bg-gray-50"
+                    } hover:bg-purple-50`}
                   >
                     <td className="p-4 font-medium capitalize">{branch}</td>
-
-                    {/* Actual Revenue */}
-                    <td className="p-4 font-semibold text-purple-700">
-                      ₹ {revenue}
-                    </td>
-
-                    {/* Expected Revenue */}
+                    <td className="p-4 font-semibold text-purple-700">₹ {revenue}</td>
                     <td className="p-4 font-semibold text-blue-700">
                       ₹ {expectedRevenue[branch] || 0}
                     </td>
@@ -285,12 +212,9 @@ export default function Revenue() {
                 ))
               )}
             </tbody>
-
           </table>
         </div>
       </div>
-
-
     </div>
   );
 }

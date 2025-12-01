@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../createClient";
 import TransactionTable from "../components/TransactionTable";
+import { useAuth } from "../context/AuthContext";
 
 function Fees() {
   const [open, setOpen] = useState(false);
