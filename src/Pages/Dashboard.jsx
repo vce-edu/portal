@@ -10,7 +10,7 @@ export default function Dashboard() {
   const [activeBranches, setActiveBranches] = useState(0);
   const [totalStudents, setTotalStudents] = useState(0);
   const [monthlyRevenue, setMonthlyRevenue] = useState(0);
-  const [pendingFees, setPendingFees] = useState(0);
+  const [pendingFeesByBranch, setPendingFeesByBranch] = useState([]);
 
   const navigate = useNavigate();
 
@@ -25,15 +25,15 @@ export default function Dashboard() {
   // ------------------------------
   // Fetch Pending Fees
   // ------------------------------
-  const fetchPendingFees = useCallback(async () => {
-    const { data, error } = await supabase.rpc("get_total_pending_fees");
+  const fetchPendingFeesByBranch = useCallback(async () => {
+    const { data, error } = await supabase.rpc("get_total_pending_fees_by_branch");
 
     if (error) {
-      console.error("Error fetching pending fees:", error);
+      console.error("Error fetching pending fees by branch:", error);
       return;
     }
 
-    setPendingFees(data);
+    setPendingFeesByBranch(data || []);
   }, []);
 
   // ------------------------------
@@ -91,12 +91,12 @@ export default function Dashboard() {
   // Run All Fetchers Once on Load
   // ------------------------------
   useEffect(() => {
-    fetchPendingFees();
+    fetchPendingFeesByBranch();
     fetchStudentCount();
     fetchMonthlyRevenue();
     fetchActiveBranches();
   }, [
-    fetchPendingFees,
+    fetchPendingFeesByBranch,
     fetchStudentCount,
     fetchMonthlyRevenue,
     fetchActiveBranches,
@@ -133,13 +133,27 @@ export default function Dashboard() {
 
       {/* -------- Stats Cards -------- */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+
+        {/* Static Cards */}
         <Card title="Total Students" value={totalStudents} />
         <Card title="Monthly Revenue" value={`₹ ${monthlyRevenue}`} />
         <Card title="Active Branches" value={activeBranches} />
-        <Card title="Fees Pending" value={`₹ ${pendingFees}`} />
+
+        {/* Dynamic Branch Pending Cards */}
+        {pendingFeesByBranch.map((b) => (
+          <Card
+            key={b.branch_name}
+            title={`Fees Pending (${b.branch_name})`}
+            value={`₹ ${b.total_pending}`}
+          />
+        ))}
+
+        {/* Other static */}
         <Card title="Total Courses" value="23" />
         <Card title="Online Enquiries" value="54" />
+
       </div>
+
     </div>
   );
 }
