@@ -45,9 +45,11 @@ export default function Students() {
     duration: "",
     fee_month: "",
     phone_number: "",
-    admission_date: "",
+    addmission_date: "",
     branch: "",
   });
+  const [originalRoll, setOriginalRoll] = useState(null);
+
 
   useEffect(() => {
     const handleEsc = (e) => {
@@ -190,7 +192,7 @@ export default function Students() {
     const { error } = await supabase
       .from("students")
       .update(editForm)
-      .eq("roll_number", editForm.roll_number);
+      .eq("roll_number", originalRoll);
 
     if (error) {
       alert("Update failed: " + error.message);
@@ -207,6 +209,7 @@ export default function Students() {
   };
 
   const openUpdateModal = (student) => {
+    setOriginalRoll(student.roll_number);
     setEditForm({
       roll_number: student.roll_number,
       student_name: student.student_name,
@@ -216,7 +219,7 @@ export default function Students() {
       duration: student.duration,
       fee_month: student.fee_month,
       phone_number: student.phone_number,
-      admission_date: student.addmission_date,
+      addmission_date: student.addmission_date,
       branch: student.branch,
     });
 
@@ -536,8 +539,8 @@ export default function Students() {
                 </div>
 
                 <input className="border rounded-lg px-3 py-2 w-32"
-                  value={editForm.admission_date}
-                  onChange={(e) => setEditForm({ ...editForm, admission_date: e.target.value })}
+                  value={editForm.addmission_date}
+                  onChange={(e) => setEditForm({ ...editForm, addmission_date: e.target.value })}
                 />
               </div>
 
