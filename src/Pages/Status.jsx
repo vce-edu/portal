@@ -158,7 +158,7 @@ export default function Status() {
           <table className="min-w-full border bg-white">
             <thead className="bg-purple-700 text-white">
               <tr>
-                <th className="px-6 py-3">Roll No</th>
+                <th className="px-6 py-3">Father's Name</th>
                 <th className="px-6 py-3">Student Name</th>
                 <th className="px-6 py-3">Total Expected</th>
                 <th className="px-6 py-3">Total Paid</th>
@@ -173,7 +173,7 @@ export default function Status() {
 
                 return (
                   <tr key={i} className={i % 2 === 0 ? "bg-gray-50" : ""}>
-                    <td className="px-6 py-3">{r.roll_number}</td>
+                    <td className="px-6 py-3">{s.father_name}</td>
                     <td className="px-6 py-3">{r.student_name}</td>
                     <td className="px-6 py-3">₹{r.expected_total}</td>
                     <td className="px-6 py-3">₹{r.total_paid}</td>
