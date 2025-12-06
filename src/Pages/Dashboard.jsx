@@ -10,6 +10,7 @@ export default function Dashboard() {
   const [activeBranches, setActiveBranches] = useState(0);
   const [totalStudents, setTotalStudents] = useState(0);
   const [monthlyRevenue, setMonthlyRevenue] = useState(0);
+  const [branchWiseRevenue, setBranchWiseRevenue] = useState([]);
   const [pendingFeesByBranch, setPendingFeesByBranch] = useState([]);
 
   const navigate = useNavigate();

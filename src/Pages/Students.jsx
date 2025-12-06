@@ -538,10 +538,23 @@ export default function Students() {
                   />
                 </div>
 
-                <input className="border rounded-lg px-3 py-2 w-32"
-                  value={editForm.addmission_date}
-                  onChange={(e) => setEditForm({ ...editForm, addmission_date: e.target.value })}
+                <DatePicker
+                  selected={
+                    editForm.addmission_date
+                      ? new Date(editForm.addmission_date)
+                      : null
+                  }
+                  onChange={(date) => {
+                    const iso = date ? date.toISOString().split("T")[0] : "";
+                    setEditForm({ ...editForm, addmission_date: iso });
+                  }}
+                  dateFormat="dd/MM/yyyy"
+                  className="border rounded-lg px-3 py-2 w-32"
+                  showMonthDropdown
+                  showYearDropdown
+                  dropdownMode="select"
                 />
+
               </div>
 
               <div className="flex gap-2">

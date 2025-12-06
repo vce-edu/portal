@@ -9,6 +9,7 @@ import Login from "./Pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Fees from "./Pages/fees";
 import Status from "./Pages/Status";
+import PersonalNotes from "./Pages/PersonalNotes";
 
 export default function App() {
   return (
@@ -40,6 +41,7 @@ export default function App() {
         <Route path="portal/fees" element={<Fees />} />
         <Route path="portal/status" element={<Status />} />
         <Route path="portal/performance" element={<Performance />} />
+        <Route path="portal/notes" element={<PersonalNotes />} />
       </Route>
     </Routes>
   );
