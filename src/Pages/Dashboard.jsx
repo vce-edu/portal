@@ -4,12 +4,12 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user,branch } = useAuth();
   const name = user?.user_metadata?.display_name || "User";
+  const userBranch = branch || "all"; 
 
   const [activeBranches, setActiveBranches] = useState(0);
-  const [totalStudents, setTotalStudents] = useState(0);
-  const [monthlyRevenue, setMonthlyRevenue] = useState(0);
+  const [totalStudents, setTotalStudents] = useState([]);
   const [branchWiseRevenue, setBranchWiseRevenue] = useState([]);
   const [pendingFeesByBranch, setPendingFeesByBranch] = useState([]);
 
@@ -24,7 +24,7 @@ export default function Dashboard() {
   ];
 
   // ------------------------------
-  // Fetch Pending Fees
+  // Fetch Pending Fees (RPC)
   // ------------------------------
   const fetchPendingFeesByBranch = useCallback(async () => {
     const { data, error } = await supabase.rpc("get_total_pending_fees_by_branch");
@@ -34,47 +34,86 @@ export default function Dashboard() {
       return;
     }
 
-    setPendingFeesByBranch(data || []);
-  }, []);
+    let filtered = data || [];
+
+    if (userBranch !== "all") {
+      filtered = filtered.filter((r) => r.branch_name === userBranch);
+    }
+
+    setPendingFeesByBranch(filtered);
+  }, [userBranch]);
 
   // ------------------------------
-  // Fetch Total Students
+  // Fetch Student Count (branch wise)
   // ------------------------------
   const fetchStudentCount = useCallback(async () => {
-    const { count, error } = await supabase
-      .from("students")
-      .select("*", { count: "exact", head: true });
+    let query = supabase.from("students").select("branch");
+
+    // ⭐ Restrict to logged-in user's branch
+    if (userBranch !== "all") {
+      query = query.eq("branch", userBranch);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Error fetching student count:", error);
       return;
     }
 
-    setTotalStudents(count);
-  }, []);
+    const branchCounts = data.reduce((acc, student) => {
+      acc[student.branch] = (acc[student.branch] || 0) + 1;
+      return acc;
+    }, {});
+
+    const formatted = Object.entries(branchCounts).map(
+      ([branch, total]) => ({ branch, total })
+    );
+
+    setTotalStudents(formatted);
+  }, [userBranch]);
 
   // ------------------------------
-  // Fetch Monthly Revenue
+  // Fetch Monthly Revenue (RPC)
   // ------------------------------
-  const fetchMonthlyRevenue = useCallback(async () => {
+  const fetchBranchWiseRevenue = useCallback(async () => {
     const now = new Date();
-    const { data, error } = await supabase.rpc("get_monthly_revenue", {
+
+    const { data, error } = await supabase.rpc("branch_wise_monthly_revenue", {
       p_year: now.getFullYear(),
       p_month: now.getMonth() + 1,
     });
 
     if (error) {
-      console.error("Error fetching monthly revenue:", error);
+      console.error("Error fetching branch wise revenue:", error);
       return;
     }
 
-    setMonthlyRevenue(data);
-  }, []);
+    let formatted = data
+      ? Object.entries(data).map(([branch_name, total_revenue]) => ({
+          branch_name,
+          total_revenue,
+        }))
+      : [];
+
+    // ⭐ Restrict by user branch
+    if (userBranch !== "all") {
+      formatted = formatted.filter((r) => r.branch_name === userBranch);
+    }
+
+    setBranchWiseRevenue(formatted);
+  }, [userBranch]);
 
   // ------------------------------
-  // Fetch Active Branches
+  // Fetch Active Branch Count
   // ------------------------------
   const fetchActiveBranches = useCallback(async () => {
+    if (userBranch !== "all") {
+      // ⭐ If user has branch "Indore", they should only see ONE active branch
+      setActiveBranches(1);
+      return;
+    }
+
     const { data, error } = await supabase
       .from("users")
       .select("branch")
@@ -86,20 +125,20 @@ export default function Dashboard() {
     }
 
     setActiveBranches(data.length);
-  }, []);
+  }, [userBranch]);
 
   // ------------------------------
-  // Run All Fetchers Once on Load
+  // Run All Fetchers
   // ------------------------------
   useEffect(() => {
     fetchPendingFeesByBranch();
     fetchStudentCount();
-    fetchMonthlyRevenue();
+    fetchBranchWiseRevenue();
     fetchActiveBranches();
   }, [
     fetchPendingFeesByBranch,
     fetchStudentCount,
-    fetchMonthlyRevenue,
+    fetchBranchWiseRevenue,
     fetchActiveBranches,
   ]);
 
@@ -135,12 +174,24 @@ export default function Dashboard() {
       {/* -------- Stats Cards -------- */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
 
-        {/* Static Cards */}
-        <Card title="Total Students" value={totalStudents} />
-        <Card title="Monthly Revenue" value={`₹ ${monthlyRevenue}`} />
+        {/* Students */}
+        {totalStudents.map((b) => (
+          <Card key={b.branch} title={`Students (${b.branch})`} value={b.total} />
+        ))}
+
+        {/* Revenue */}
+        {branchWiseRevenue.map((b) => (
+          <Card
+            key={b.branch_name}
+            title={`Revenue (${b.branch_name})`}
+            value={`₹ ${b.total_revenue}`}
+          />
+        ))}
+
+        {/* Active Branches */}
         <Card title="Active Branches" value={activeBranches} />
 
-        {/* Dynamic Branch Pending Cards */}
+        {/* Pending Fees */}
         {pendingFeesByBranch.map((b) => (
           <Card
             key={b.branch_name}
@@ -149,12 +200,11 @@ export default function Dashboard() {
           />
         ))}
 
-        {/* Other static */}
+        {/* Static Cards */}
         <Card title="Total Courses" value="23" />
         <Card title="Online Enquiries" value="54" />
 
       </div>
-
     </div>
   );
 }

@@ -4,12 +4,13 @@ import { useAuth } from "../context/AuthContext";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
-// Polished Students component - "Option C" - professional dashboard UI
-// Uses Tailwind classes, improved spacing, subtle shadows, and cleaner table.
-// Keep your existing Supabase operations and logic; only UI and structure updated.
-
 export default function Students() {
   const { branch } = useAuth();
+  const [page, setPage] = useState(0);
+  const [pageSize] = useState(100);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [allBranches, setAllBranches] = useState([]);
   const [search, setSearch] = useState("");
   const [students, setStudents] = useState([
     {
@@ -28,7 +29,10 @@ export default function Students() {
 
   const [studentList, setStudentList] = useState([]);
   const [open, setOpen] = useState(false);
-  const [selectedBranch, setSelectedBranch] = useState("all");
+  const [selectedBranch, setSelectedBranch] = useState(
+    branch?.toLowerCase() === "all" ? "main" : branch
+  );
+
   // VIEW MORE MODAL
   const [viewStudent, setViewStudent] = useState(null);
 
@@ -65,31 +69,58 @@ export default function Students() {
   }, [open, editStudent, viewStudent]);
 
   // Fetch Students
-  const fetchStudents = async () => {
-    try {
-      let query = supabase
-        .from("students")
-        .select("*")
-        .order("roll_number", { ascending: true });
+  const fetchStudents = async (reset = false) => {
+    if (loading) return;
+    setLoading(true);
 
-      if (branch && branch.toLowerCase() !== "all") {
-        query = query.eq("branch", branch);
-      }
+    const from = reset ? 0 : page * pageSize;
+    const to = from + pageSize - 1;
 
-      const { data, error } = await query;
-      if (error) console.error("Fetch error:", error);
-      else setStudentList(data || []);
-    } catch (err) {
-      console.error(err);
+    let query = supabase
+      .from("students")
+      .select("*")
+      .range(from, to) // <-- KEY PART
+      .order("roll_number", { ascending: false });
+
+    const activeBranch = branch?.toLowerCase() === "all"
+      ? selectedBranch
+      : branch;
+    if (activeBranch && activeBranch !== "all") {
+      query = query.eq("branch", activeBranch.toLowerCase());
     }
+
+
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("Fetch error:", error);
+      setLoading(false);
+      return;
+    }
+
+    if (reset) {
+      setStudentList(data);
+      setPage(1);
+    } else {
+      setStudentList((prev) => [...prev, ...data]);
+      setPage((p) => p + 1);
+    }
+
+    if (data.length < pageSize) {
+      setHasMore(false);
+    }
+
+    setLoading(false);
   };
+
 
   useEffect(() => {
     if (branch !== null && branch !== undefined) {
-      fetchStudents();
+      fetchStudents(true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branch]);
+
 
   // Add Form Row
   const handleAddRow = () => {
@@ -226,7 +257,7 @@ export default function Students() {
     setEditStudent(student);
   };
 
-  // Grouping & filtering
+
   const filteredList = studentList.filter((s) => {
     if (!search.trim()) return true;
 
@@ -245,6 +276,64 @@ export default function Students() {
     return acc;
   }, {});
   const br = branch?.toLowerCase();
+
+  const fetchSearchResult = async (text) => {
+    if (!text.trim()) return;
+
+    const exists = studentList.some(
+      (s) =>
+        s.roll_number.toLowerCase().includes(text) ||
+        s.student_name.toLowerCase().includes(text)
+    );
+
+    if (exists) return;
+    const { data, error } = await supabase
+      .from("students")
+      .select("*")
+      .or(`roll_number.ilike.%${text}%,student_name.ilike.%${text}%`)
+      .limit(20);
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    if (data.length > 0) {
+      setStudentList((prev) => {
+        const newOnes = data.filter(
+          (d) => !prev.some((p) => p.roll_number === d.roll_number)
+        );
+        return [...prev, ...newOnes];
+      });
+    }
+  };
+  const fetchAllBranches = async () => {
+    const { data, error } = await supabase
+      .from("students")
+      .select("branch", { distinct: true });
+
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    const uniqueBranches = [...new Set(data.map(b => b.branch))];
+    setAllBranches(uniqueBranches);
+  };
+
+  useEffect(() => {
+    if (branch?.toLowerCase() === "all") {
+      fetchAllBranches();
+    }
+  }, [branch]);
+  useEffect(() => {
+    if (branch?.toLowerCase() === "all") {
+      setPage(0);
+      setHasMore(true);
+      fetchStudents(true);
+    }
+  }, [selectedBranch]);
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -266,7 +355,14 @@ export default function Students() {
               className="w-full rounded-full border px-4 py-2 shadow-inner bg-white"
               placeholder="Search by Roll Number or Name..."
               value={search}
-              onChange={(e) => setSearch(e.target.value.toLowerCase())}
+              onChange={async (e) => {
+                const text = e.target.value.toLowerCase();
+                setSearch(text);
+
+
+                await fetchSearchResult(text);
+              }}
+
             />
           </div>
         </div>
@@ -283,10 +379,8 @@ export default function Students() {
               onChange={(e) => setSelectedBranch(e.target.value)}
             >
               <option value="all">All Branches</option>
-              {Object.keys(grouped).map((g) => (
-                <option value={g} key={g}>
-                  {g.toUpperCase()}
-                </option>
+              {allBranches.map((b) => (
+                <option value={b} key={b}>{b.toUpperCase()}</option>
               ))}
             </select>
           ) : (
@@ -317,7 +411,7 @@ export default function Students() {
                 <input
                   className="border rounded-lg px-3 py-2"
                   placeholder="Student Name"
-                  value={s.studentName}
+                  value={s.studentName.toUpperCase()}
                   onChange={(e) => handleChange(index, "studentName", e.target.value)}
                   required
                 />
@@ -325,21 +419,21 @@ export default function Students() {
                 <input
                   className="border rounded-lg px-3 py-2"
                   placeholder="Father Name"
-                  value={s.fatherName}
+                  value={s.fatherName.toUpperCase()}
                   onChange={(e) => handleChange(index, "fatherName", e.target.value)}
                 />
 
                 <input
                   className="border rounded-lg px-3 py-2"
                   placeholder="Mother Name"
-                  value={s.motherName}
+                  value={s.motherName.toUpperCase()}
                   onChange={(e) => handleChange(index, "motherName", e.target.value)}
                 />
 
                 <input
                   className="border rounded-lg px-3 py-2"
                   placeholder="Course"
-                  value={s.course}
+                  value={s.course.toUpperCase()}
                   onChange={(e) => handleChange(index, "course", e.target.value)}
                   required
                 />
@@ -384,7 +478,7 @@ export default function Students() {
                 <input
                   className={`border rounded-lg px-3 py-2 ${branch?.toLowerCase() !== "all" ? "bg-gray-100 cursor-not-allowed" : ""}`}
                   placeholder="Branch"
-                  value={s.branch}
+                  value={s.branch.toLowerCase()}
                   onChange={(e) => handleChange(index, "branch", e.target.value.toLowerCase())}
                   required
                   readOnly={branch?.toLowerCase() !== "all"}
@@ -602,6 +696,18 @@ export default function Students() {
           </div>
         </div>
       )}
+      {hasMore && (
+        <div className="p-4 text-center">
+          <button
+            className="px-4 py-2 bg-gray-200 rounded-lg"
+            onClick={() => fetchStudents(false)}
+            disabled={loading}
+          >
+            {loading ? "Loading..." : "Load More"}
+          </button>
+        </div>
+      )}
+
     </div>
   );
 }
