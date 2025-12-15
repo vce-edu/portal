@@ -3,8 +3,12 @@ import { supabase } from "../createClient";
 import { useAuth } from "../context/AuthContext";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { useNavigate } from "react-router-dom";
+
+
 
 export default function Students() {
+  const navigate = useNavigate();
   const { branch } = useAuth();
   const [page, setPage] = useState(0);
   const [pageSize] = useState(100);
@@ -24,6 +28,7 @@ export default function Students() {
       phoneNumber: "",
       admissionDate: "",
       branch: branch?.toLowerCase() === "all" ? "" : branch,
+      batchTime: "",
     },
   ]);
 
@@ -51,6 +56,7 @@ export default function Students() {
     phone_number: "",
     addmission_date: "",
     branch: "",
+    batch_time: "",
   });
   const [originalRoll, setOriginalRoll] = useState(null);
 
@@ -137,6 +143,7 @@ export default function Students() {
         phoneNumber: "",
         admissionDate: "",
         branch: branch?.toLowerCase() === "all" ? "" : branch,
+        batchTime: "",
       },
     ]);
   };
@@ -169,6 +176,7 @@ export default function Students() {
         phone_number: s.phoneNumber,
         addmission_date: s.admissionDate,
         branch: s.branch,
+        batch_time: s.batchTime,
       };
     });
 
@@ -195,6 +203,7 @@ export default function Students() {
         phoneNumber: "",
         admissionDate: "",
         branch: branch?.toLowerCase() === "all" ? "" : branch,
+        batchTime: "",
       },
     ]);
 
@@ -231,6 +240,8 @@ export default function Students() {
     }
 
     alert("Student updated!");
+    console.log("ORIGINAL:", originalRoll);
+    console.log("EDIT FORM:", editForm);
     setEditStudent(null);
     fetchStudents();
   };
@@ -252,6 +263,7 @@ export default function Students() {
       phone_number: student.phone_number,
       addmission_date: student.addmission_date,
       branch: student.branch,
+      batch_time: student.batch_time,
     });
 
     setEditStudent(student);
@@ -483,6 +495,12 @@ export default function Students() {
                   required
                   readOnly={branch?.toLowerCase() !== "all"}
                 />
+                <input
+                  className={`border rounded-lg px-3 py-2 ${branch?.toLowerCase() !== "all" ? "bg-gray-100 cursor-not-allowed" : ""}`}
+                  placeholder="Batch"
+                  value={s.batchTime}
+                  onChange={(e) => handleChange(index, "batchTime", e.target.value)}
+                />
               </div>
             ))}
 
@@ -525,8 +543,9 @@ export default function Students() {
                     <tr className="text-left text-sm text-gray-600">
                       <th className="py-3 px-4">Roll No</th>
                       <th className="py-3 px-4">Name</th>
+                      <th className="py-3 px-4">Father</th>
                       <th className="py-3 px-4">Course</th>
-                      <th className="py-3 px-4">Fee/Month</th>
+                      <th className="py-3 px-4">Batch Time</th>
                       <th className="py-3 px-4">Duration</th>
                       <th className="py-3 px-4">Actions</th>
                     </tr>
@@ -537,8 +556,9 @@ export default function Students() {
                       <tr key={s.roll_number} className="border-t last:border-b hover:bg-gray-50">
                         <td className="py-3 px-4 align-top">{s.roll_number}</td>
                         <td className="py-3 px-4 align-top">{s.student_name}</td>
+                        <td className="py-3 px-4 align-top">{s.father_name}</td>
                         <td className="py-3 px-4 align-top">{s.course}</td>
-                        <td className="py-3 px-4 align-top">{s.fee_month || "-"}</td>
+                        <td className="py-3 px-4 align-top">{s.batch_time || "-"}</td>
                         <td className="py-3 px-4 align-top">{s.duration || "-"}</td>
                         <td className="py-3 px-4 align-top">
                           <div className="flex gap-2">
@@ -562,6 +582,17 @@ export default function Students() {
                             >
                               Delete
                             </button>
+                            <button
+                              className="px-3 py-1 rounded-full bg-green-600 text-white text-sm"
+                              onClick={() =>
+                                navigate("/fees", {
+                                  state: { roll: s.roll_number }
+                                })
+                              }
+                            >
+                              Fees
+                            </button>
+
                           </div>
                         </td>
                       </tr>
@@ -611,6 +642,10 @@ export default function Students() {
               <input className="border rounded-lg px-3 py-2 w-full"
                 value={editForm.course}
                 onChange={(e) => setEditForm({ ...editForm, course: e.target.value })}
+              />
+              <input className="border rounded-lg px-3 py-2 w-full"
+                value={editForm.batch_time}
+                onChange={(e) => setEditForm({ ...editForm, batch_time: e.target.value })}
               />
 
               <div className="flex gap-2">
@@ -685,6 +720,7 @@ export default function Students() {
               <div><span className="font-medium">Duration:</span> {viewStudent.duration}</div>
               <div><span className="font-medium">Phone:</span> {viewStudent.phone_number}</div>
               <div><span className="font-medium">Admission Date:</span> {viewStudent.addmission_date}</div>
+              <div><span className="font-medium">Batch Time:</span> {viewStudent.batch_time}</div>
             </div>
 
             <button

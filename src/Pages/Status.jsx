@@ -10,7 +10,9 @@ export default function Status() {
   const [students, setStudents] = useState([]);
   const [error, setError] = useState(null);
   const [open, setOpen] = useState(false);
-
+  const PAGE_SIZE = 50;
+  const [page, setPage] = useState(0);
+  const [showOnlyPending, setShowOnlyPending] = useState(false);
   const [form, setForm] = useState({
     roll: "",
     student: "",
@@ -24,6 +26,14 @@ export default function Status() {
   const [selectedBranch, setSelectedBranch] = useState(branch === "all" ? "main" : branch);
   const [filterMonth, setFilterMonth] = useState("");
   const [filterYear, setFilterYear] = useState("");
+  const [search, setSearch] = useState("");
+
+  const handleSearch = () => {
+    fetchStatus(selectedBranch, 0, search); // page 0
+  };
+  useEffect(() => {
+    fetchStatus(selectedBranch, 0, search);
+  }, [showOnlyPending]);
 
   async function fetchNotPaidStudents() {
     if (!filterMonth || !filterYear) return alert("Select both month and year");
@@ -48,8 +58,8 @@ export default function Status() {
       (transactions || []).forEach((tx) => {
         if (!tx || !tx.paid_on) return;
         const parts = String(tx.paid_on).trim().split("/").map(p => p.trim());
-        if (parts.length !== 3) return; 
-        const [, monStr, yearStr] = parts; 
+        if (parts.length !== 3) return;
+        const [, monStr, yearStr] = parts;
         const mon = Number(monStr);
         const yr = Number(yearStr);
         if (!Number.isNaN(mon) && !Number.isNaN(yr)) {
@@ -90,51 +100,59 @@ export default function Status() {
   // ----------------------------------------------------
   // LOAD ALL STUDENTS ONCE (NOT EVERY MODAL OPEN)
   // ----------------------------------------------------
-  useEffect(() => {
-    supabase.from("students").select("*").then(({ data }) => {
-      if (data) setStudents(data);
-    });
-  }, []);
+  async function fetchStudentByRoll(roll) {
+    const { data, error } = await supabase
+      .from("students")
+      .select("student_name, father_name, fee_month")
+      .eq("roll_number", roll)
+      .single();
+
+    if (error) return null;
+    return data;
+  }
+
 
   // ----------------------------------------------------
   // LOAD STATUS DATA
   // ----------------------------------------------------
-  async function fetchStatus(branchToUse) {
+  async function fetchStatus(branchToUse, pageToLoad = 0, searchTerm = null) {
     try {
       setLoading(true);
       setError(null);
 
-      const res = await fetch(
-        "https://pgvwjskubfonmirtaodo.supabase.co/functions/v1/status",
+      const { data, error } = await supabase.rpc(
+        "get_student_fee_status",
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ branch: branchToUse }),
+          p_branch: branchToUse,
+          p_search: searchTerm && searchTerm.trim() !== "" ? searchTerm : null,
+          p_only_pending: showOnlyPending,
+          p_limit: PAGE_SIZE,
+          p_offset: pageToLoad * PAGE_SIZE,
         }
       );
 
-      const data = await res.json();
-      console.log(data)
+      if (error) throw error;
 
-      if (!data.success) throw new Error(data.error || "Failed to load");
+      setRows(data || []);
+      setAllRows(data || []);
+      setPage(pageToLoad);
 
-      setRows(data.data || []);
-      setAllRows(data.data || []);
 
     } catch (err) {
-      setError(err.message);
+      console.error(err);
+      setError(err.message || "Failed to load data");
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => {
-    fetchStatus(selectedBranch);
-  }, []);
+
+
 
   useEffect(() => {
-    if (branch === "all") fetchStatus(selectedBranch);
+    fetchStatus(selectedBranch, 0);
   }, [selectedBranch]);
+
 
   // ----------------------------------------------------
   // FORM CHANGE HANDLER
@@ -144,19 +162,20 @@ export default function Status() {
 
     setForm((prev) => ({ ...prev, [name]: value }));
 
-    if (name === "roll") {
-      const s = students.find((x) => String(x.roll_number) === value);
-      if (s) {
-        setForm({
+    if (name === "roll" && value) {
+      fetchStudentByRoll(value).then((s) => {
+        if (!s) return;
+
+        setForm((prev) => ({
+          ...prev,
           roll: value,
           student: s.student_name,
           father: s.father_name,
           amount: s.fee_month,
-          receipt: "",
-          paidOn: today,
-        });
-      }
+        }));
+      });
     }
+
   };
 
   // ----------------------------------------------------
@@ -211,72 +230,39 @@ export default function Status() {
           </select>
         </div>
       )}
+
+
+
+
       {/* NOT PAID FILTER UI */}
       <div className="mb-8 p-4 bg-white rounded-xl shadow-md border border-purple-200">
-        <h2 className="text-xl font-semibold mb-4 text-purple-700">
-          Filter Students Who Have NOT Paid
-        </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <form className="m-4 ml-0"
+            onSubmit={(e) => {
+              e.preventDefault();
+              fetchStatus(selectedBranch, 0, search);
+            }}
+          >
+            <input
+              type="text"
+              placeholder="Search roll / name / father"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="border px-3 py-2 rounded w-64"
+            />
+          </form>
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={showOnlyPending}
+              onChange={(e) => setShowOnlyPending(e.target.checked)}
+            />
 
-          {/* Month Selector */}
-          <div>
-            <label className="block mb-1 font-medium">Select Month</label>
-            <select
-              value={filterMonth}
-              onChange={(e) => setFilterMonth(e.target.value)}
-              className="w-full border px-3 py-2 rounded-md bg-gray-50"
-            >
-              <option value="">Choose Month</option>
-              <option value="1">January</option>
-              <option value="2">February</option>
-              <option value="3">March</option>
-              <option value="4">April</option>
-              <option value="5">May</option>
-              <option value="6">June</option>
-              <option value="7">July</option>
-              <option value="8">August</option>
-              <option value="9">September</option>
-              <option value="10">October</option>
-              <option value="11">November</option>
-              <option value="12">December</option>
-            </select>
-          </div>
 
-          {/* Year Selector */}
-          <div>
-            <label className="block mb-1 font-medium">Select Year</label>
-            <select
-              value={filterYear}
-              onChange={(e) => setFilterYear(e.target.value)}
-              className="w-full border px-3 py-2 rounded-md bg-gray-50"
-            >
-              <option value="">Choose Year</option>
-              <option value="2024">2024</option>
-              <option value="2025">2025</option>
-              <option value="2026">2026</option>
-            </select>
-          </div>
-
-          {/* Filter Button */}
-          <div className="flex items-end">
-            <button
-              className="w-full mr-4 px-4 py-2 bg-purple-700 text-white rounded-lg hover:bg-purple-800"
-              onClick={fetchNotPaidStudents}
-            >
-              Show Not Paid
-            </button>
-            <button
-              className="w-full px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-              onClick={() => {
-                setFilterMonth("");
-                setFilterYear("");
-                setRows(allRows);
-              }}
-
-            >
-              Clear Filter
-            </button>
+            <label htmlFor="pendingOnly" className="font-medium">
+              Show only pending
+            </label>
           </div>
 
         </div>
@@ -292,9 +278,10 @@ export default function Status() {
           <table className="min-w-full border bg-white">
             <thead className="bg-purple-700 text-white">
               <tr>
-                <th className="px-6 py-3">Father's Name</th>
                 <th className="px-6 py-3">Roll Number</th>
                 <th className="px-6 py-3">Student Name</th>
+                <th className="px-6 py-3">Father's Name</th>
+                <th className="px-6 py-3">Batch Time</th>
                 <th className="px-6 py-3">Total Expected</th>
                 <th className="px-6 py-3">Total Paid</th>
                 <th className="px-6 py-3">Status</th>
@@ -304,15 +291,16 @@ export default function Status() {
 
             <tbody>
               {rows.map((r, i) => {
-                const s = students.find((x) => x.roll_number === r.roll_number);
 
                 return (
                   <tr key={i} className={i % 2 === 0 ? "bg-gray-50" : ""}>
-                    <td className="px-6 py-3">{s.father_name}</td>
                     <td className="px-6 py-3">{r.roll_number}</td>
                     <td className="px-6 py-3">{r.student_name}</td>
-                    <td className="px-6 py-3">₹{r.expected_total}</td>
-                    <td className="px-6 py-3">₹{r.total_paid}</td>
+                    <td className="px-6 py-3">{r.father_name}</td>
+                    <td className="px-6 py-3">{r.batch_time}</td>
+                    <td className="px-6 py-3">₹{r.expected_amount}</td>
+                    <td className="px-6 py-3">₹{r.paid_amount}</td>
+
 
                     <td
                       className={`px-6 py-3 font-semibold ${r.status.includes("UP")
@@ -327,17 +315,22 @@ export default function Status() {
                       {!r.status.includes("UP") && (
                         <button
                           className="px-3 py-1 bg-purple-600 text-white rounded-full"
-                          onClick={() => {
+                          onClick={async () => {
+                            const s = await fetchStudentByRoll(r.roll_number);
+
                             setForm({
                               roll: r.roll_number,
-                              student: r.student_name,
-                              father: s?.father_name || "",
+                              student: s?.student_name || r.student_name,
+                              father: s?.father_name || r.father_name || "",
                               amount: s?.fee_month || "",
                               receipt: "",
                               paidOn: today,
                             });
+
                             setOpen(true);
                           }}
+
+
                         >
                           Pay
                         </button>
@@ -348,6 +341,28 @@ export default function Status() {
               })}
             </tbody>
           </table>
+          <div className="flex gap-4 m-4 justify-center">
+            <button
+              disabled={page === 0 || loading}
+              onClick={() => fetchStatus(selectedBranch, page - 1)}
+              className="px-4 py-2 bg-gray-600 text-white rounded disabled:opacity-50"
+            >
+              Previous
+            </button>
+
+            <span className="px-4 py-2 font-semibold">
+              Page {page + 1}
+            </span>
+
+            <button
+              disabled={rows.length < PAGE_SIZE || loading}
+              onClick={() => fetchStatus(selectedBranch, page + 1)}
+              className="px-4 py-2 bg-purple-700 text-white rounded disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+
         </div>
       )}
 
