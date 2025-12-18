@@ -147,6 +147,13 @@ export default function Students() {
       },
     ]);
   };
+  const handleRemoveRow = (index) => {
+    // prevent removing the last row
+    if (students.length === 1) return;
+
+    setStudents(students.filter((_, i) => i !== index));
+  };
+
 
   // Form Change
   const handleChange = (index, field, value) => {
@@ -501,13 +508,24 @@ export default function Students() {
                   value={s.batchTime}
                   onChange={(e) => handleChange(index, "batchTime", e.target.value)}
                 />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveRow(index)}
+                  className="px-3 py-2 rounded-lg text-white text-sm bg-red-600 hover:bg-red-700"
+                >
+                  Remove
+                </button>
+
+
               </div>
+
             ))}
 
             <div className="flex items-center gap-3">
               <button type="button" onClick={handleAddRow} className="px-4 py-2 bg-gray-100 rounded-lg">
                 + Add Row
               </button>
+
 
               <div className="flex-1" />
 
