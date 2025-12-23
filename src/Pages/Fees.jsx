@@ -74,6 +74,9 @@ export default function Fees() {
       // noop
     }
   };
+  const backToHistoryPrompt = () => {
+    setFeesHistory([]);
+  };
 
   const openPayForSelectedRoll = () => {
     if (!selectedRoll) return;
@@ -428,8 +431,8 @@ export default function Fees() {
                 }}
                 disabled={loadingHistory}
                 className={`h-11 flex-1 rounded-lg shadow font-medium text-white transition ${loadingHistory
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-purple-700 hover:bg-purple-600"
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-purple-700 hover:bg-purple-600"
                   }`}
               >
                 {loadingHistory ? "Fetching..." : "Fetch"}
@@ -499,7 +502,14 @@ export default function Fees() {
 
                   )}
                 </div>
+
                 <div className="flex justify-center mt-6 gap-4">
+                  <button
+                    onClick={backToHistoryPrompt}
+                    className="px-6 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg shadow"
+                  >
+                    ← Back
+                  </button>
                   <button
                     onClick={openPayForSelectedRoll}
                     className="px-6 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg shadow"
@@ -508,6 +518,7 @@ export default function Fees() {
                   </button>
 
                 </div>
+
               </div>
             </div>
           </div>
