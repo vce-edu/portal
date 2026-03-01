@@ -1,4 +1,4 @@
-import{r as d,s as i,j as e}from"./index-Dj6nTAnv.js";import{f as D,D as B}from"./react-datepicker-CR7WBjaY.js";function A(){const[b,f]=d.useState([]),[_,h]=d.useState(!1),[y,m]=d.useState(!1),[c,p]=d.useState(!1),[s,o]=d.useState({event_id:null,event_name:"",event_date:null,event_description:"",event_type:"Scholarship",buttons:[]}),j=["Scholarship","Educational","Celebration"];d.useEffect(()=>{x()},[]);const x=async()=>{h(!0);const{data:t,error:n}=await i.from("events").select(`
+import{r as d,s as i,j as e}from"./index-Bbu59jBI.js";import{f as D,D as B}from"./react-datepicker-D1xNAlem.js";function A(){const[b,f]=d.useState([]),[_,h]=d.useState(!1),[y,m]=d.useState(!1),[c,p]=d.useState(!1),[s,o]=d.useState({event_id:null,event_name:"",event_date:null,event_description:"",event_type:"Scholarship",buttons:[]}),j=["Scholarship","Educational","Celebration"];d.useEffect(()=>{x()},[]);const x=async()=>{h(!0);const{data:t,error:n}=await i.from("events").select(`
                 *,
                 event_buttons (
                     button_id,
