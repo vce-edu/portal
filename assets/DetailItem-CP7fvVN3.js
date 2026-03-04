@@ -1,1 +1,0 @@
-import{j as e}from"./index-Bbu59jBI.js";const r=({label:s,value:a})=>e.jsxs("div",{className:"flex flex-col",children:[e.jsx("span",{className:"text-xs font-semibold text-gray-500 uppercase tracking-wide",children:s}),e.jsx("span",{className:"text-gray-900 font-medium break-words",children:a||"N/A"})]});export{r as D};
