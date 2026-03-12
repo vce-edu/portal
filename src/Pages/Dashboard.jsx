@@ -2,11 +2,13 @@ import { useAuth } from "../context/AuthContext";
 import { supabase } from "../createClient";
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import Button from "../components/ui/Button";
+import { StatsCard } from "../components/ui/Card";
 
 export default function Dashboard() {
-  const { user,branch } = useAuth();
+  const { user, branch } = useAuth();
   const name = user?.user_metadata?.display_name || "User";
-  const userBranch = branch || "all"; 
+  const userBranch = branch || "all";
 
   const [activeBranches, setActiveBranches] = useState(0);
   const [totalStudents, setTotalStudents] = useState([]);
@@ -91,9 +93,9 @@ export default function Dashboard() {
 
     let formatted = data
       ? Object.entries(data).map(([branch_name, total_revenue]) => ({
-          branch_name,
-          total_revenue,
-        }))
+        branch_name,
+        total_revenue,
+      }))
       : [];
 
     // ⭐ Restrict by user branch
@@ -109,28 +111,25 @@ export default function Dashboard() {
   // ------------------------------
   const fetchActiveBranches = useCallback(async () => {
     if (userBranch !== "all") {
-      // ⭐ If user has branch "Indore", they should only see ONE active branch
       setActiveBranches(1);
       return;
     }
 
-    const { data, error } = await supabase
-      .from("users")
-      .select("branch")
-      .neq("branch", "all");
+    const { data, error } = await supabase.rpc("get_active_branch_count");
 
     if (error) {
       console.error("Error fetching active branches:", error);
       return;
     }
 
-    setActiveBranches(data.length);
+    setActiveBranches(data);
   }, [userBranch]);
 
   // ------------------------------
   // Run All Fetchers
   // ------------------------------
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchPendingFeesByBranch();
     fetchStudentCount();
     fetchBranchWiseRevenue();
@@ -143,77 +142,72 @@ export default function Dashboard() {
   ]);
 
   return (
-    <div className="p-10 space-y-12">
+    <div className="p-2 sm:p-4 md:p-10 space-y-6 md:space-y-12">
       {/* -------- Header -------- */}
-      <div>
-        <h1 className="text-5xl font-extrabold tracking-tight text-gray-900">
+      <div className="px-2 sm:px-0">
+        <h1 className="text-2xl md:text-5xl font-black md:font-extrabold tracking-tight text-gray-900 border-l-4 border-purple-600 pl-4 md:pl-0 md:border-none">
           Dashboard
         </h1>
-        <p className="text-lg mt-2 text-gray-600" style={{ fontFamily: "Poppins, sans-serif" }}>
+        <p className="text-sm md:text-lg mt-1 md:mt-2 text-gray-600" style={{ fontFamily: "Poppins, sans-serif" }}>
           Welcome back,
-          <span className="text-purple-600 font-semibold ml-1">{name}</span>.
+          <span className="text-purple-600 font-bold ml-1">{name}</span>.
         </p>
       </div>
 
       {/* -------- Quick Actions -------- */}
-      <div>
-        <h2 className="text-2xl font-bold mb-4">Quick Actions</h2>
-        <div className="flex flex-wrap gap-4">
+      <div className="px-2 sm:px-0">
+        <h2 className="text-lg md:text-2xl font-bold mb-3 md:mb-4 text-gray-800">Quick Actions</h2>
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 md:gap-4">
           {quickActions.map((action) => (
-            <button
+            <Button
               key={action.label}
               onClick={() => navigate(action.path)}
-              className="px-5 py-3 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-700 active:scale-95 transition"
+              variant="primary"
+              size="md"
+              className="rounded-2xl"
             >
               {action.label}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
 
       {/* -------- Stats Cards -------- */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+      <div className="px-2 sm:px-0 grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6 pb-12">
 
         {/* Students */}
         {totalStudents.map((b) => (
-          <Card key={b.branch} title={`Students (${b.branch})`} value={b.total} />
+          <StatsCard key={b.branch} title={`Students (${b.branch})`} value={b.total} />
         ))}
 
         {/* Revenue */}
         {branchWiseRevenue.map((b) => (
-          <Card
+          <StatsCard
             key={b.branch_name}
-            title={`Revenue (${b.branch_name})`}
+            title={`Monthly Revenue (${b.branch_name})`}
             value={`₹ ${b.total_revenue}`}
+            variant="green"
           />
         ))}
 
         {/* Active Branches */}
-        <Card title="Active Branches" value={activeBranches} />
+        <StatsCard title="Active Branches" value={activeBranches} variant="blue" />
 
         {/* Pending Fees */}
         {pendingFeesByBranch.map((b) => (
-          <Card
+          <StatsCard
             key={b.branch_name}
-            title={`Fees Pending (${b.branch_name})`}
+            title={`Pending Fees (${b.branch_name})`}
             value={`₹ ${b.total_pending}`}
+            variant="red"
           />
         ))}
 
         {/* Static Cards */}
-        <Card title="Total Courses" value="23" />
-        <Card title="Online Enquiries" value="54" />
+        <StatsCard title="Available Courses" value="23" variant="purple" />
+        <StatsCard title="New Enquiries" value="54" variant="yellow" />
 
       </div>
-    </div>
-  );
-}
-
-function Card({ title, value }) {
-  return (
-    <div className="p-6 rounded-2xl shadow-lg border border-gray-200 bg-white hover:shadow-xl transition">
-      <h3 className="text-xl font-bold mb-2 text-purple-700">{title}</h3>
-      <p className="text-4xl font-extrabold">{value}</p>
     </div>
   );
 }

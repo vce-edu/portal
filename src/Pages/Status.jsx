@@ -1,13 +1,17 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../createClient";
 import { useAuth } from "../context/AuthContext";
+import Button from "../components/ui/Button";
+import Modal from "../components/ui/Modal";
+import { Input, Select } from "../components/ui/Input";
+import { Card, CardHeader } from "../components/ui/Card";
+import Badge from "../components/ui/Badge";
+import { Table, THead, TBody, TH, TD, TR } from "../components/ui/Table";
 
 export default function Status() {
   const today = new Date().toISOString().split("T")[0];
-  const [allRows, setAllRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
-  const [students, setStudents] = useState([]);
   const [error, setError] = useState(null);
   const [open, setOpen] = useState(false);
   const PAGE_SIZE = 50;
@@ -24,76 +28,11 @@ export default function Status() {
 
   const { branch } = useAuth();
   const [selectedBranch, setSelectedBranch] = useState(branch === "all" ? "main" : branch);
-  const [filterMonth, setFilterMonth] = useState("");
-  const [filterYear, setFilterYear] = useState("");
   const [search, setSearch] = useState("");
-
-  const handleSearch = () => {
-    fetchStatus(selectedBranch, 0, search); // page 0
-  };
   useEffect(() => {
     fetchStatus(selectedBranch, 0, search);
-  }, [showOnlyPending]);
+  }, [showOnlyPending, selectedBranch, search]);
 
-  async function fetchNotPaidStudents() {
-    if (!filterMonth || !filterYear) return alert("Select both month and year");
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      const selMonth = Number(filterMonth);
-      const selYear = Number(filterYear);
-      console.log("selected", selMonth, selYear);
-
-      const { data: transactions, error: tErr } = await supabase
-        .from("transaction")
-        .select("roll_no, paid_on");
-
-      if (tErr) throw tErr;
-
-
-      const paidRollsSet = new Set();
-
-      (transactions || []).forEach((tx) => {
-        if (!tx || !tx.paid_on) return;
-        const parts = String(tx.paid_on).trim().split("/").map(p => p.trim());
-        if (parts.length !== 3) return;
-        const [, monStr, yearStr] = parts;
-        const mon = Number(monStr);
-        const yr = Number(yearStr);
-        if (!Number.isNaN(mon) && !Number.isNaN(yr)) {
-          if (mon === selMonth && yr === selYear) {
-            paidRollsSet.add(String(tx.roll_no));
-            console.log("paidRollsSet", Array.from(paidRollsSet).slice(0, 50));
-          }
-        }
-      });
-
-      const stillPending = (allRows || []).filter((r) => {
-        if (!r.status) return true;
-        const s = r.status.toLowerCase();
-        return !(s.includes("up-to-date") || s.includes("paid"));
-      });
-
-      const filtered = stillPending.filter(
-        (r) => !paidRollsSet.has(String(r.roll_number))
-      );
-
-      // 5) Update UI
-      setRows(filtered);
-
-
-    } catch (err) {
-      setError(err.message || String(err));
-    } finally {
-      setLoading(false);
-    }
-
-
-
-
-  }
 
 
 
@@ -115,7 +54,7 @@ export default function Status() {
   // ----------------------------------------------------
   // LOAD STATUS DATA
   // ----------------------------------------------------
-  async function fetchStatus(branchToUse, pageToLoad = 0, searchTerm = null) {
+  const fetchStatus = useCallback(async (branchToUse, pageToLoad = 0, searchTerm = null) => {
     try {
       setLoading(true);
       setError(null);
@@ -134,7 +73,6 @@ export default function Status() {
       if (error) throw error;
 
       setRows(data || []);
-      setAllRows(data || []);
       setPage(pageToLoad);
 
 
@@ -144,14 +82,14 @@ export default function Status() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [showOnlyPending]);
 
 
 
 
   useEffect(() => {
     fetchStatus(selectedBranch, 0);
-  }, [selectedBranch]);
+  }, [selectedBranch, fetchStatus]);
 
 
   // ----------------------------------------------------
@@ -182,19 +120,15 @@ export default function Status() {
   // SUBMIT PAYMENT
   // ----------------------------------------------------
   const handleSubmit = async () => {
-    const [y, m, d] = form.paidOn.split("-");
-    const formattedDate = `${d}/${m}/${y}`;
-
+    // eslint-disable-next-line no-unused-vars
     const { error } = await supabase.from("transaction").insert({
       roll_no: form.roll,
       student_name: form.student,
       father_name: form.father,
       amount_paid: form.amount,
       receipt_no: form.receipt,
-      paid_on: formattedDate,
+      paid_on: form.paidOn.split('-').reverse().join('/'),
     });
-
-    if (error) return alert("Failed to add transaction!");
 
     // Close modal + reset
     setOpen(false);
@@ -212,224 +146,193 @@ export default function Status() {
   };
 
   return (
-    <div className="p-8 text-black">
-      <h1 className="text-4xl font-bold mb-6">Fees Status</h1>
-
-      {/* Branch Selector */}
-      {branch === "all" && (
-        <div className="mb-6">
-          <label className="mr-3">Select Branch:</label>
-          <select
-            value={selectedBranch}
-            onChange={(e) => setSelectedBranch(e.target.value)}
-            className="border px-3 py-2 rounded"
-          >
-            <option value="main">Main</option>
-            <option value="second">Second</option>
-            <option value="third">Third</option>
-          </select>
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-8">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+        <div>
+          <h1 className="text-3xl sm:text-5xl font-black text-gray-900 tracking-tight">Audit Status</h1>
+          <p className="text-gray-500 mt-2 font-medium">Monitoring fee compliance across the network</p>
         </div>
-      )}
 
-
-
-
-      {/* NOT PAID FILTER UI */}
-      <div className="mb-8 p-4 bg-white rounded-xl shadow-md border border-purple-200">
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <form className="m-4 ml-0"
-            onSubmit={(e) => {
-              e.preventDefault();
-              fetchStatus(selectedBranch, 0, search);
-            }}
-          >
-            <input
-              type="text"
-              placeholder="Search roll / name / father"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="border px-3 py-2 rounded w-64"
+        {branch === "all" && (
+          <div className="w-full sm:w-64">
+            <Select
+              label="Active Branch"
+              value={selectedBranch}
+              onChange={(e) => setSelectedBranch(e.target.value)}
+              options={[
+                { value: "main", label: "Main Office" },
+                { value: "second", label: "Second Unit" },
+                { value: "third", label: "Third Unit" },
+              ]}
             />
-          </form>
-          <div className="flex items-center gap-3">
+          </div>
+        )}
+      </div>
+
+      <Card className="bg-white/80 backdrop-blur-md shadow-sm border-purple-100">
+        <div className="flex flex-col md:flex-row items-center gap-6">
+          <div className="flex-1 w-full">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                fetchStatus(selectedBranch, 0, search);
+              }}
+            >
+              <Input
+                placeholder="Search by roll, student or father's name..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                icon={() => (
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                )}
+              />
+            </form>
+          </div>
+
+          <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-2xl border border-gray-100">
             <input
               type="checkbox"
+              id="pendingOnly"
+              className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
               checked={showOnlyPending}
               onChange={(e) => setShowOnlyPending(e.target.checked)}
             />
-
-
-            <label htmlFor="pendingOnly" className="font-medium">
-              Show only pending
+            <label htmlFor="pendingOnly" className="text-sm font-bold text-gray-600 cursor-pointer select-none">
+              Show Pending Only
             </label>
           </div>
-
         </div>
-      </div>
+      </Card>
 
       {/* Loading & Error */}
-      {loading && <div className="text-lg">Loading...</div>}
-      {error && <div className="text-red-600 text-lg">{error}</div>}
+      {loading && (
+        <div className="flex justify-center py-20">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-700"></div>
+        </div>
+      )}
+      {error && (
+        <Card className="bg-red-50 border-red-100 p-6 text-center">
+          <p className="text-red-600 font-bold">{error}</p>
+        </Card>
+      )}
 
       {/* TABLE */}
       {!loading && !error && (
-        <div className="overflow-x-auto shadow-lg rounded-lg">
-          <table className="min-w-full border bg-white">
-            <thead className="bg-purple-700 text-white">
-              <tr>
-                <th className="px-6 py-3">Roll Number</th>
-                <th className="px-6 py-3">Student Name</th>
-                <th className="px-6 py-3">Father's Name</th>
-                <th className="px-6 py-3">Batch Time</th>
-                <th className="px-6 py-3">Total Expected</th>
-                <th className="px-6 py-3">Total Paid</th>
-                <th className="px-6 py-3">Status</th>
-                <th className="px-6 py-3">Action</th>
-              </tr>
-            </thead>
+        <Card noPadding className="overflow-hidden shadow-xl border-gray-100">
+          <Table>
+            <THead>
+              <TR className="hover:bg-transparent">
+                <TH>Roll</TH>
+                <TH>Name</TH>
+                <TH className="hidden lg:table-cell">Father's Name</TH>
+                <TH className="hidden md:table-cell">Batch</TH>
+                <TH>Expect</TH>
+                <TH>Paid</TH>
+                <TH>Status</TH>
+                <TH>Action</TH>
+              </TR>
+            </THead>
 
-            <tbody>
-              {rows.map((r, i) => {
-
-                return (
-                  <tr key={i} className={i % 2 === 0 ? "bg-gray-50" : ""}>
-                    <td className="px-6 py-3">{r.roll_number}</td>
-                    <td className="px-6 py-3">{r.student_name}</td>
-                    <td className="px-6 py-3">{r.father_name}</td>
-                    <td className="px-6 py-3">{r.batch_time}</td>
-                    <td className="px-6 py-3">₹{r.expected_amount}</td>
-                    <td className="px-6 py-3">₹{r.paid_amount}</td>
-
-
-                    <td
-                      className={`px-6 py-3 font-semibold ${r.status.includes("UP")
-                        ? "text-green-600"
-                        : "text-red-600"
-                        }`}
-                    >
+            <TBody>
+              {rows.map((r, i) => (
+                <TR key={i}>
+                  <TD className="font-bold text-gray-900">{r.roll_number}</TD>
+                  <TD className="font-medium text-gray-700">{r.student_name}</TD>
+                  <TD className="text-gray-500 hidden lg:table-cell">{r.father_name}</TD>
+                  <TD className="text-gray-500 hidden md:table-cell">{r.batch_time}</TD>
+                  <TD className="font-bold text-gray-400">₹{r.expected_amount}</TD>
+                  <TD className="font-black text-purple-700">₹{r.paid_amount}</TD>
+                  <TD>
+                    <Badge variant={r.status.toLowerCase().includes("up") ? "green" : "danger"}>
                       {r.status}
-                    </td>
+                    </Badge>
+                  </TD>
+                  <TD>
+                    {!r.status.toLowerCase().includes("up") && (
+                      <Button
+                        size="xs"
+                        variant="primary"
+                        onClick={async () => {
+                          const s = await fetchStudentByRoll(r.roll_number);
+                          setForm({
+                            roll: r.roll_number,
+                            student: s?.student_name || r.student_name,
+                            father: s?.father_name || r.father_name || "",
+                            amount: s?.fee_month || "",
+                            receipt: "",
+                            paidOn: today,
+                          });
+                          setOpen(true);
+                        }}
+                      >
+                        Pay
+                      </Button>
+                    )}
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
 
-                    <td className="px-6 py-3">
-                      {!r.status.includes("UP") && (
-                        <button
-                          className="px-3 py-1 bg-purple-600 text-white rounded-full"
-                          onClick={async () => {
-                            const s = await fetchStudentByRoll(r.roll_number);
-
-                            setForm({
-                              roll: r.roll_number,
-                              student: s?.student_name || r.student_name,
-                              father: s?.father_name || r.father_name || "",
-                              amount: s?.fee_month || "",
-                              receipt: "",
-                              paidOn: today,
-                            });
-
-                            setOpen(true);
-                          }}
-
-
-                        >
-                          Pay
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <div className="flex gap-4 m-4 justify-center">
-            <button
+          {/* PAGINATION */}
+          <div className="flex items-center justify-between px-6 py-4 bg-gray-50/50 border-t border-gray-100">
+            <Button
+              variant="outline"
+              size="sm"
               disabled={page === 0 || loading}
               onClick={() => fetchStatus(selectedBranch, page - 1)}
-              className="px-4 py-2 bg-gray-600 text-white rounded disabled:opacity-50"
             >
               Previous
-            </button>
+            </Button>
 
-            <span className="px-4 py-2 font-semibold">
-              Page {page + 1}
-            </span>
+            <span className="text-sm font-bold text-gray-500 underline decoration-purple-200 decoration-4">Page {page + 1}</span>
 
-            <button
+            <Button
+              size="sm"
               disabled={rows.length < PAGE_SIZE || loading}
               onClick={() => fetchStatus(selectedBranch, page + 1)}
-              className="px-4 py-2 bg-purple-700 text-white rounded disabled:opacity-50"
             >
-              Next
-            </button>
+              Next Page
+            </Button>
           </div>
-
-        </div>
+        </Card>
       )}
 
       {/* PAYMENT MODAL */}
-      {open && (
-        <div className="fixed inset-0 bg-black/60 flex justify-center items-center">
-          <div className="bg-white p-6 rounded-2xl w-80">
-            <h2 className="text-lg font-semibold mb-4">Fees Payment</h2>
+      <Modal
+        isOpen={open}
+        onClose={() => setOpen(false)}
+        title="Fees Payment"
+        maxWidth="max-w-sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={handleSubmit}>Confirm Payment</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input label="Roll Number" name="roll" value={form.roll} onChange={handleChange} />
+          <Input label="Student Name" value={form.student} readOnly placeholder="Search result..." />
+          <Input label="Father Name" value={form.father} readOnly placeholder="Search result..." />
 
-            {["roll", "student", "father"].map((f) => (
-              <input
-                key={f}
-                name={f}
-                value={form[f]}
-                placeholder={f}
-                className="w-full p-2 mb-2 bg-gray-100 rounded-md border"
-                onChange={handleChange}
-                readOnly={f !== "roll"}
-              />
-            ))}
-
-            <div className="w-full mb-2 relative">
-              <span className="absolute left-2 top-2.5 text-black">₹</span>
-              <input
-                name="amount"
-                placeholder="Amount"
-                type="number"
-                value={form.amount}
-                className="w-full pl-7 p-2 bg-gray-100 text-black rounded-md border border-purple-700"
-                onChange={handleChange}
-              />
-            </div>
-
-
-            <input
-              name="receipt"
-              value={form.receipt}
-              placeholder="Receipt Number"
-              className="w-full p-2 mb-2 bg-gray-100 rounded-md border"
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Amount"
+              name="amount"
+              type="number"
+              value={form.amount}
               onChange={handleChange}
+              icon={() => <span className="text-gray-400 font-bold">₹</span>}
             />
-
-            <input
-              name="paidOn"
-              type="date"
-              value={form.paidOn}
-              className="w-full p-2 mb-4 bg-gray-100 rounded-md border"
-              onChange={handleChange}
-            />
-
-            <div className="flex justify-between">
-              <button
-                className="px-4 py-2 bg-red-600 text-white rounded-md"
-                onClick={() => setOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-4 py-2 bg-purple-700 text-white rounded-md"
-                onClick={handleSubmit}
-              >
-                Pay
-              </button>
-            </div>
+            <Input label="Receipt" name="receipt" value={form.receipt} onChange={handleChange} />
           </div>
+
+          <Input label="Paid On" name="paidOn" type="date" value={form.paidOn} onChange={handleChange} />
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

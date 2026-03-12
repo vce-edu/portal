@@ -1,6 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../createClient";
 import { useAuth } from "../context/AuthContext";
+import Button from "./ui/Button";
+import { Card } from "./ui/Card";
+import Modal from "./ui/Modal";
+import { Input, Select } from "./ui/Input";
+import Badge from "./ui/Badge";
+import { Table, THead, TBody, TH, TD, TR } from "./ui/Table";
 
 export default function TransactionTable() {
   const [transactions, setTransactions] = useState([]);
@@ -25,7 +31,7 @@ export default function TransactionTable() {
   const branchPrefix = getBranchPrefix(branch);
 
   // 🚀 MAIN FETCH
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
     setLoading(true);
 
     let query = supabase
@@ -46,35 +52,30 @@ export default function TransactionTable() {
       );
     }
 
-    // MONTH filter — NO DATE CHANGE
-    if (selectedMonth) {
-      const m = selectedMonth.toString().padStart(2, "0");
-      query = query.ilike("paid_on", `__/${m}/%`);
-    }
-
-    // YEAR filter — NO DATE CHANGE
+    // Date filtering (assuming DD/MM/YYYY string format)
     if (selectedYear) {
-      query = query.like("paid_on", `%/${selectedYear}`);
+      if (selectedMonth) {
+        query = query.ilike("paid_on", `%/${selectedMonth.padStart(2, '0')}/${selectedYear}`);
+      } else {
+        query = query.ilike("paid_on", `%/%/${selectedYear}`);
+      }
+    } else if (selectedMonth) {
+      query = query.ilike("paid_on", `%/${selectedMonth.padStart(2, '0')}/%`);
     }
 
     const { data, error } = await query;
 
     if (!error) setTransactions(data || []);
     setLoading(false);
-  };
+  }, [page, limit, branchPrefix, search, selectedMonth, selectedYear]);
 
   useEffect(() => {
     const delay = setTimeout(() => {
-      setPage(0); // reset page on filter change
       fetchTransactions();
     }, 250);
 
     return () => clearTimeout(delay);
-  }, [search, selectedMonth, selectedYear, branch]);
-
-  useEffect(() => {
-    fetchTransactions();
-  }, [page]);
+  }, [fetchTransactions]);
 
   // DELETE
   const handleDelete = async (id) => {
@@ -93,227 +94,197 @@ export default function TransactionTable() {
 
   const handleUpdate = async () => {
     const { id, ...rest } = editForm;
+    const updateData = {
+      ...rest,
+      paid_on: editForm.paid_on
+    };
 
     const { error } = await supabase
       .from("transaction")
-      .update(rest)
+      .update(updateData)
       .eq("id", id);
 
     if (!error) {
       setTransactions((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, ...rest } : t))
+        prev.map((t) => (t.id === id ? { ...t, ...updateData } : t))
       );
       setEditForm(null);
     }
   };
 
   return (
-    <div className="p-4 min-h-screen bg-gray-50 mt-20">
-      <h1 className="text-2xl font-semibold mb-4">Transaction History</h1>
-
-      {/* SEARCH */}
-      <input
-        type="text"
-        placeholder="Search..."
-        className="border p-2 w-full rounded mb-4"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
-
-      {/* FILTERS */}
-      <div className="flex gap-4 mb-4">
-        <select
-          className="border p-2 rounded"
-          value={selectedMonth}
-          onChange={(e) => setSelectedMonth(e.target.value)}
-        >
-          <option value="">All Months</option>
-          {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
-
-        <select
-          className="border p-2 rounded"
-          value={selectedYear}
-          onChange={(e) => setSelectedYear(e.target.value)}
-        >
-          <option value="">All Years</option>
-          <option>2024</option>
-          <option>2025</option>
-          <option>2026</option>
-        </select>
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+        <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">Transaction History</h1>
+        <div className="flex items-center gap-2">
+          <Badge variant="purple">{transactions.length} items</Badge>
+        </div>
       </div>
 
-      {/* TABLE */}
-      {loading ? (
-        <p>Loading...</p>
-      ) : (
-        <div className="bg-white shadow rounded p-4 overflow-x-auto">
-          <table className="w-full table-auto">
-            <thead>
-              <tr className="bg-purple-700 text-white">
-                <th className="px-4 py-2">Receipt</th>
-                <th className="px-4 py-2">Roll</th>
-                <th className="px-4 py-2">Name</th>
-                <th className="px-4 py-2">Amount</th>
-                <th className="px-4 py-2">Paid On</th>
-                <th className="px-4 py-2">Actions</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {transactions.map((t) => (
-                <tr key={t.id} className="border-b text-center">
-                  <td className="px-4 py-2">{t.receipt_no}</td>
-                  <td className="px-4 py-2">{t.roll_no}</td>
-                  <td className="px-4 py-2">{t.student_name}</td>
-                  <td className="px-4 py-2">₹{t.amount_paid}</td>
-                  <td className="px-4 py-2">{t.paid_on}</td>
-                  <td className="px-4 py-2 space-x-2">
-                    <button
-                      onClick={() => setSelectedTransaction(t)}
-                      className="px-2 py-1 bg-blue-600 text-white rounded"
-                    >
-                      View
-                    </button>
-
-                    {role === "owner" && (
-                      <button
-                        onClick={() => handleEdit(t)}
-                        className="px-2 py-1 bg-yellow-500 text-white rounded"
-                      >
-                        Edit
-                      </button>
-                    )}
-
-                    <button
-                      onClick={() => handleDelete(t.id)}
-                      className="px-2 py-1 bg-red-600 text-white rounded"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-
-              {transactions.length === 0 && (
-                <tr>
-                  <td colSpan="6" className="py-4 text-gray-500">
-                    No transactions
-                  </td>
-                </tr>
+      {/* SEARCH & FILTERS */}
+      <Card className="bg-white">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1">
+            <Input
+              placeholder="Search by name, receipt, or roll..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              icon={() => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
               )}
-            </tbody>
-          </table>
+            />
+          </div>
 
-          {/* PAGINATION */}
-          <div className="flex justify-between mt-4">
-            <button
-              disabled={page === 0}
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              className="px-4 py-2 bg-gray-300 rounded"
-            >
-              Previous
-            </button>
+          <div className="flex gap-3">
+            <Select
+              className="w-40"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              options={[
+                { value: "", label: "All Months" },
+                ...Array.from({ length: 12 }, (_, i) => i + 1).map((m) => ({
+                  value: m.toString(),
+                  label: new Date(0, m - 1).toLocaleString('default', { month: 'long' }),
+                })),
+              ]}
+            />
 
-            <button
-              onClick={() => setPage((p) => p + 1)}
-              className="px-4 py-2 bg-purple-700 text-white rounded"
-            >
-              Next
-            </button>
+            <Select
+              className="w-32"
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              options={[
+                { value: "", label: "All Years" },
+                { value: "2024", label: "2024" },
+                { value: "2025", label: "2025" },
+                { value: "2026", label: "2026" },
+              ]}
+            />
           </div>
         </div>
-      )}
+      </Card>
+
+      {/* TABLE */}
+      <Card noPadding className="shadow-sm border border-gray-100">
+        {loading ? (
+          <div className="flex justify-center items-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-700"></div>
+          </div>
+        ) : (
+          <>
+            <Table>
+              <THead>
+                <TR className="hover:bg-transparent">
+                  <TH>Receipt</TH>
+                  <TH className="hidden sm:table-cell">Roll</TH>
+                  <TH>Name</TH>
+                  <TH>Amount</TH>
+                  <TH className="hidden md:table-cell">Paid On</TH>
+                  <TH>Actions</TH>
+                </TR>
+              </THead>
+
+              <TBody>
+                {transactions.map((t) => (
+                  <TR key={t.id}>
+                    <TD className="font-bold text-gray-900">{t.receipt_no}</TD>
+                    <TD className="text-gray-500 hidden sm:table-cell">{t.roll_no}</TD>
+                    <TD className="font-medium text-gray-700">{t.student_name}</TD>
+                    <TD>
+                      <Badge variant="green" className="font-black text-sm">₹{t.amount_paid}</Badge>
+                    </TD>
+                    <TD className="text-gray-500 hidden md:table-cell">{t.paid_on}</TD>
+                    <TD>
+                      <div className="flex gap-2">
+                        <Button size="xs" variant="secondary" onClick={() => setSelectedTransaction(t)}>View</Button>
+                        {role === "owner" && (
+                          <Button size="xs" variant="outline" onClick={() => handleEdit(t)}>Edit</Button>
+                        )}
+                        <Button size="xs" variant="danger" onClick={() => handleDelete(t.id)}>Del</Button>
+                      </div>
+                    </TD>
+                  </TR>
+                ))}
+
+                {transactions.length === 0 && (
+                  <TR>
+                    <TD colSpan="6" className="py-20 text-center text-gray-400 font-medium italic">
+                      No records found matching filters.
+                    </TD>
+                  </TR>
+                )}
+              </TBody>
+            </Table>
+
+            {/* PAGINATION */}
+            <div className="flex items-center justify-between px-6 py-4 bg-gray-50/50 border-t border-gray-100">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page === 0}
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+              >
+                Previous
+              </Button>
+
+              <span className="text-sm font-bold text-gray-500 underline decoration-purple-200 decoration-4">Page {page + 1}</span>
+
+              <Button
+                size="sm"
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next Page
+              </Button>
+            </div>
+          </>
+        )}
+      </Card>
 
       {/* VIEW MODAL */}
-      {selectedTransaction && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white p-6 rounded shadow w-96 relative">
-            <button
-              className="absolute right-3 top-3"
-              onClick={() => setSelectedTransaction(null)}
-            >
-              ✖
-            </button>
-            <h2 className="font-bold text-xl mb-3">Transaction Details</h2>
-
-            {Object.entries(selectedTransaction).map(([k, v]) => (
-              <div key={k} className="flex justify-between border-b py-1">
-                <span className="font-semibold">{k}:</span>
-                <span>{v}</span>
-              </div>
-            ))}
+      <Modal
+        isOpen={!!selectedTransaction}
+        onClose={() => setSelectedTransaction(null)}
+        title="Transaction Record"
+      >
+        {selectedTransaction && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-2">
+              {Object.entries(selectedTransaction).map(([k, v]) => (
+                <div key={k} className="flex flex-col sm:flex-row sm:justify-between border-b border-gray-50 pb-2 gap-1 group">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{k.replace(/_/g, ' ')}</span>
+                  <span className="text-sm font-bold text-gray-800 break-all group-hover:text-purple-600 transition-colors">{v}</span>
+                </div>
+              ))}
+            </div>
+            <Button variant="secondary" className="w-full mt-6" onClick={() => setSelectedTransaction(null)}>Close</Button>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
       {/* EDIT MODAL */}
-      {editForm && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white p-6 rounded shadow w-96 relative">
-            <button
-              className="absolute right-3 top-3"
-              onClick={() => setEditForm(null)}
-            >
-              ✖
-            </button>
-
-            <h2 className="font-bold text-xl mb-4">Edit Transaction</h2>
-
-            <input
-              className="border p-2 w-full mb-2"
-              value={editForm.receipt_no}
-              onChange={(e) =>
-                setEditForm({ ...editForm, receipt_no: e.target.value })
-              }
-            />
-
-            <input
-              className="border p-2 w-full mb-2"
-              value={editForm.roll_no}
-              onChange={(e) =>
-                setEditForm({ ...editForm, roll_no: e.target.value })
-              }
-            />
-
-            <input
-              className="border p-2 w-full mb-2"
-              value={editForm.student_name}
-              onChange={(e) =>
-                setEditForm({ ...editForm, student_name: e.target.value })
-              }
-            />
-
-            <input
-              type="number"
-              className="border p-2 w-full mb-2"
-              value={editForm.amount_paid}
-              onChange={(e) =>
-                setEditForm({ ...editForm, amount_paid: e.target.value })
-              }
-            />
-
-            <input
-              className="border p-2 w-full mb-2"
-              value={editForm.paid_on}
-              onChange={(e) =>
-                setEditForm({ ...editForm, paid_on: e.target.value })
-              }
-            />
-
-            <button
-              onClick={handleUpdate}
-              className="w-full bg-blue-600 text-white py-2 rounded mt-3"
-            >
-              Save
-            </button>
+      <Modal
+        isOpen={!!editForm}
+        onClose={() => setEditForm(null)}
+        title="Edit Transaction"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setEditForm(null)}>Cancel</Button>
+            <Button onClick={handleUpdate}>Save Changes</Button>
+          </>
+        }
+      >
+        {editForm && (
+          <div className="space-y-4">
+            <Input label="Receipt No" value={editForm.receipt_no} onChange={(e) => setEditForm({ ...editForm, receipt_no: e.target.value })} />
+            <Input label="Roll No" value={editForm.roll_no} onChange={(e) => setEditForm({ ...editForm, roll_no: e.target.value })} />
+            <Input label="Student Name" value={editForm.student_name} onChange={(e) => setEditForm({ ...editForm, student_name: e.target.value })} />
+            <Input label="Amount Paid" type="number" value={editForm.amount_paid} onChange={(e) => setEditForm({ ...editForm, amount_paid: e.target.value })} />
+            <Input label="Paid On" value={editForm.paid_on} onChange={(e) => setEditForm({ ...editForm, paid_on: e.target.value })} />
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 }

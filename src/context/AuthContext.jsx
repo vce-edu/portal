@@ -9,6 +9,18 @@ export const AuthProvider = ({ children }) => {
   const [branch, setBranch] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  async function fetchRole(userId) {
+    const { data: profile } = await supabase
+      .from("users")
+      .select("role, branch")
+      .eq("id", userId)
+      .single();
+
+    setRole(profile?.role || null);
+    setBranch(profile?.branch);
+    setLoading(false);
+  }
+
   useEffect(() => {
     async function loadSession() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -21,24 +33,13 @@ export const AuthProvider = ({ children }) => {
     }
     loadSession();
   }, []);
-
-  async function fetchRole(userId) {
-    const { data: profile } = await supabase
-      .from("users")
-      .select("role, branch")
-      .eq("id", userId)
-      .single();
-
-    setRole(profile?.role || null);
-    setBranch(profile?.branch);
-    setLoading(false);
-  }
   const logout = async () => {
-  await supabase.auth.signOut();
-  setUser(null);
-  setRole(null);
-  setLoading(false);
-};
+    await supabase.auth.signOut();
+    setUser(null);
+    setRole(null);
+    setBranch(null);
+    setLoading(false);
+  };
 
   return (
     <AuthContext.Provider value={{ user, role, branch, setUser, fetchRole, loading, setLoading, logout }}>

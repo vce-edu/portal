@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../createClient";
+import Button from "../components/ui/Button";
+import Modal from "../components/ui/Modal";
+import { Input, Select } from "../components/ui/Input";
+import { Card, CardHeader } from "../components/ui/Card";
+import Badge from "../components/ui/Badge";
 
 export default function Branches() {
   const [open, setOpen] = useState(false);
@@ -24,6 +29,7 @@ export default function Branches() {
   // Branch Manager inputs
   const [managerEmail, setManagerEmail] = useState("");
   const [managerPassword, setManagerPassword] = useState("");
+  // eslint-disable-next-line no-unused-vars
   const [managerUserId, setManagerUserId] = useState(null);
 
 
@@ -151,320 +157,273 @@ export default function Branches() {
   };
 
   return (
-    <div className="p-8 w-full">
-      <h1 className="text-3xl font-semibold mb-6 text-gray-800">
-        Manage Branches
-      </h1>
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-10">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+        <div>
+          <h1 className="text-3xl sm:text-5xl font-black text-gray-900 tracking-tight">Branches</h1>
+          <p className="text-gray-500 mt-2 font-medium">Manage user access and architectural nodes</p>
+        </div>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <Button
+            onClick={() => setOpen(true)}
+            variant="primary"
+            className="flex-1 sm:flex-none shadow-purple-200"
+            icon={() => (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+              </svg>
+            )}
+          >
+            Create User
+          </Button>
 
-      <div className="flex gap-4">
-        <button
-          onClick={() => setOpen(true)}
-          className="bg-purple-700 hover:bg-purple-800 text-white px-6 py-3 rounded-xl font-medium shadow-md transition"
-        >
-          + Create User
-        </button>
-
-        <button
-          onClick={() => setBranchOpen(true)}
-          className="bg-blue-700 hover:bg-blue-800 text-white px-6 py-3 rounded-xl font-medium shadow-md transition"
-        >
-          + Create Branch
-        </button>
+          <Button
+            onClick={() => setBranchOpen(true)}
+            variant="secondary"
+            className="flex-1 sm:flex-none"
+            icon={() => (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            )}
+          >
+            New Branch
+          </Button>
+        </div>
       </div>
 
 
-      <div className="mt-10">
-        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Users by Branch</h2>
-
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {Object.keys(groupedData).map((branchName) => (
-          <div key={branchName} className="mb-8 p-4 border rounded-xl bg-gray-50">
-            <h3 className="text-xl font-bold mb-3 text-purple-700">
-              Branch: {branchName.charAt(0).toUpperCase() + branchName.slice(1)}
-            </h3>
+          <Card key={branchName} className="hover:shadow-xl transition-all border-purple-50 group">
+            <CardHeader
+              title={branchName}
+              subtitle="Operations Unit"
+              action={
+                <Badge variant="purple" className="opacity-0 group-hover:opacity-100 transition-opacity">Active</Badge>
+              }
+            />
 
-            {/* OWNER */}
-            {groupedData[branchName].owner.length > 0 && (
-              <div className="mb-3">
-                <p className="font-semibold">Owner</p>
-                {groupedData[branchName].owner.map((u) => (
-                  <p key={u.id} className="text-gray-700 ml-4">• {u.email}</p>
-                ))}
-              </div>
-            )}
+            <div className="mt-4 space-y-6">
+              {/* OWNER */}
+              {groupedData[branchName].owner.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="green" className="text-[10px]">Owners</Badge>
+                    <div className="h-px bg-gray-100 flex-1"></div>
+                  </div>
+                  <div className="space-y-1">
+                    {groupedData[branchName].owner.map((u) => (
+                      <p key={u.id} className="text-sm font-bold text-gray-700 truncate">{u.email}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-            {/* MANAGERS */}
-            {groupedData[branchName].manager.length > 0 && (
-              <div className="mb-3">
-                <p className="font-semibold">Manager</p>
-                {groupedData[branchName].manager.map((u) => (
-                  <p key={u.id} className="text-gray-700 ml-4">• {u.email}</p>
-                ))}
-              </div>
-            )}
+              {/* MANAGERS */}
+              {groupedData[branchName].manager.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="secondary" className="text-[10px]">Managers</Badge>
+                    <div className="h-px bg-gray-100 flex-1"></div>
+                  </div>
+                  <div className="space-y-1">
+                    {groupedData[branchName].manager.map((u) => (
+                      <p key={u.id} className="text-sm font-bold text-gray-700 truncate">{u.email}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-            {/* STAFF */}
-            {groupedData[branchName].staff.length > 0 && (
-              <div>
-                <p className="font-semibold">Staff</p>
-                {groupedData[branchName].staff.map((u) => (
-                  <p key={u.id} className="text-gray-700 ml-4">• {u.email}</p>
-                ))}
-              </div>
-            )}
-          </div>
+              {/* STAFF */}
+              {groupedData[branchName].staff.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="outline" className="text-[10px]">Staff</Badge>
+                    <div className="h-px bg-gray-100 flex-1"></div>
+                  </div>
+                  <div className="space-y-1">
+                    {groupedData[branchName].staff.map((u) => (
+                      <p key={u.id} className="text-sm font-medium text-gray-600 truncate">{u.email}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
         ))}
       </div>
 
 
-      {/* ===================== MODAL ======================= */}
-      {open && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
-          <div className="bg-white w-[90%] max-w-lg rounded-xl p-6 shadow-2xl relative">
-
-            {/* Close Button */}
-            <button
-              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-xl"
-              onClick={closeModal}
-            >
-              ✕
-            </button>
-
-            {/* Header */}
-            <h2 className="text-2xl font-semibold mb-4 text-purple-700">
-              {step === 1 && "Create User Account"}
-              {step === 2 && "Assign User Details"}
-            </h2>
-
-            {/* ================== STEP 1 ================== */}
-            {step === 1 && (
-              <div className="space-y-4">
-                {/* Email */}
-                <div>
-                  <label className="font-medium text-gray-700">Email</label>
-                  <input
-                    type="email"
-                    className="w-full border rounded-lg p-2 mt-1"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-
-                {/* Password */}
-                <div>
-                  <label className="font-medium text-gray-700">Password</label>
-                  <input
-                    type="password"
-                    className="w-full border rounded-lg p-2 mt-1"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </div>
-
-                <button
-                  onClick={handleCreateAuthUser}
-                  disabled={loading}
-                  className={`w-full py-2 rounded-lg text-white ${loading
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-purple-700 hover:bg-purple-800"
-                    }`}
-                >
-                  {loading ? "Creating..." : "Next →"}
-                </button>
-              </div>
-            )}
-
-            {/* ================== STEP 2 ================== */}
-            {step === 2 && (
-              <div className="space-y-4">
-
-                {/* Role */}
-                <div>
-                  <label className="font-medium text-gray-700">User Role</label>
-                  <select
-                    className="w-full border rounded-lg p-2 mt-1"
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                  >
-                    <option value="">Select Role</option>
-                    <option value="owner">owner</option>
-                    <option value="manager">manager</option>
-                    <option value="staff">staff</option>
-                  </select>
-                </div>
-
-                {/* Branch */}
-                <div>
-                  <label className="font-medium text-gray-700">User Branch</label>
-                  <select
-                    className="w-full border rounded-lg p-2 mt-1"
-                    value={branch}
-                    onChange={(e) => setBranch(e.target.value)}
-                  >
-                    <option value="">Select Branch</option>
-                    <option value="main">Main Branch</option>
-                    <option value="second">Second Branch</option>
-                    <option value="third">Third Branch</option>
-                  </select>
-                </div>
-
-                <button
-                  onClick={handleSaveUserProfile}
-                  disabled={loading}
-                  className={`w-full py-2 rounded-lg text-white ${loading
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-green-600 hover:bg-green-700"
-                    }`}
-                >
-                  {loading ? "Saving..." : "Save User"}
-                </button>
-              </div>
-            )}
-          </div>
+      {/* ===================== USER MODAL ======================= */}
+      <Modal
+        isOpen={open}
+        onClose={closeModal}
+        title={step === 1 ? "Create User Account" : "Assign User Details"}
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-6">
+          {step === 1 ? (
+            <div className="space-y-4">
+              <Input
+                label="Email Address"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter user email"
+              />
+              <Input
+                label="Password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Set account password"
+              />
+              <Button
+                onClick={handleCreateAuthUser}
+                loading={loading}
+                className="w-full"
+              >
+                Next Step →
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <Select
+                label="User Role"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                options={[
+                  { value: "", label: "Select Role" },
+                  { value: "owner", label: "Owner" },
+                  { value: "manager", label: "Manager" },
+                  { value: "staff", label: "Staff" },
+                ]}
+              />
+              <Select
+                label="User Branch"
+                value={branch}
+                onChange={(e) => setBranch(e.target.value)}
+                options={[
+                  { value: "", label: "Select Branch" },
+                  ...branchList.map(b => ({ value: b, label: b.charAt(0).toUpperCase() + b.slice(1) })),
+                ]}
+              />
+              <Button
+                onClick={handleSaveUserProfile}
+                loading={loading}
+                variant="success"
+                className="w-full"
+              >
+                Finalize & Save
+              </Button>
+            </div>
+          )}
         </div>
-      )}
-      {branchOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
-          <div className="bg-white w-[90%] max-w-lg rounded-xl p-6 shadow-2xl relative">
+      </Modal>
 
-            {/* Close button */}
-            <button
-              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-xl"
-              onClick={() => {
-                setBranchOpen(false);
-                setBranchStep(1);
-                setNewBranch("");
-                setManagerEmail("");
-                setManagerPassword("");
-                setManagerUserId(null);
-              }}
-            >
-              ✕
-            </button>
+      {/* ===================== BRANCH MODAL ======================= */}
+      <Modal
+        isOpen={branchOpen}
+        onClose={() => {
+          setBranchOpen(false);
+          setBranchStep(1);
+          setNewBranch("");
+          setManagerEmail("");
+          setManagerPassword("");
+          setManagerUserId(null);
+        }}
+        title={branchStep === 1 ? "Initialize New Branch" : "Setup Branch Manager"}
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-6">
+          {branchStep === 1 && (
+            <div className="space-y-4">
+              <Input
+                label="Branch Name"
+                placeholder="e.g. downtown, north_wing"
+                value={newBranch}
+                onChange={(e) => setNewBranch(e.target.value)}
+              />
+              <Button
+                className="w-full"
+                onClick={() => {
+                  if (!newBranch.trim()) return alert("Enter branch name");
+                  setBranchStep(2);
+                }}
+              >
+                Next: Manager Setup →
+              </Button>
+            </div>
+          )}
 
-            <h2 className="text-2xl font-semibold mb-4 text-purple-700">
-              {branchStep === 1 && "Create New Branch"}
-              {branchStep === 2 && "Create Manager for This Branch"}
-              {branchStep === 3 && "Saving..."}
-            </h2>
-
-            {/* STEP 1 — Enter Branch Name */}
-            {branchStep === 1 && (
-              <div className="space-y-4">
-
+          {branchStep === 2 && (
+            <div className="space-y-4">
+              <div className="p-3 bg-purple-50 rounded-xl border border-purple-100 flex items-center gap-3">
+                <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-black">?</div>
                 <div>
-                  <label className="font-medium text-gray-700">Branch Name</label>
-                  <input
-                    type="text"
-                    className="w-full border rounded-lg p-2 mt-1"
-                    value={newBranch}
-                    onChange={(e) => setNewBranch(e.target.value)}
-                  />
+                  <p className="text-xs font-bold text-purple-400 uppercase">Context</p>
+                  <p className="text-sm font-bold text-purple-700">Manager for <span className="underline">{newBranch}</span></p>
                 </div>
-
-                <button
-                  className="w-full bg-purple-700 text-white py-2 rounded-lg hover:bg-purple-800"
-                  onClick={() => {
-                    if (!newBranch.trim()) {
-                      alert("Enter branch name");
-                      return;
-                    }
-                    setBranchStep(2);
-                  }}
-                >
-                  Next →
-                </button>
               </div>
-            )}
 
-            {/* STEP 2 — Create Manager */}
-            {branchStep === 2 && (
-              <div className="space-y-4">
+              <Input
+                label="Manager Email"
+                type="email"
+                value={managerEmail}
+                onChange={(e) => setManagerEmail(e.target.value)}
+              />
+              <Input
+                label="Manager Password"
+                type="password"
+                value={managerPassword}
+                onChange={(e) => setManagerPassword(e.target.value)}
+              />
+              <Button
+                variant="success"
+                className="w-full"
+                loading={branchStep === 3}
+                onClick={async () => {
+                  if (!managerEmail || !managerPassword) return alert("Provide email + password");
+                  setBranchStep(3);
 
-                <p className="text-gray-700 mb-2">
-                  Creating manager for: <strong>{newBranch}</strong>
-                </p>
+                  const { data, error } = await supabase.auth.signUp({
+                    email: managerEmail,
+                    password: managerPassword,
+                  });
 
-                <div>
-                  <label className="font-medium text-gray-700">Manager Email</label>
-                  <input
-                    type="email"
-                    className="w-full border rounded-lg p-2 mt-1"
-                    value={managerEmail}
-                    onChange={(e) => setManagerEmail(e.target.value)}
-                  />
-                </div>
+                  if (error) {
+                    alert(error.message);
+                    setBranchStep(2);
+                    return;
+                  }
 
-                <div>
-                  <label className="font-medium text-gray-700">Manager Password</label>
-                  <input
-                    type="password"
-                    className="w-full border rounded-lg p-2 mt-1"
-                    value={managerPassword}
-                    onChange={(e) => setManagerPassword(e.target.value)}
-                  />
-                </div>
-
-                <button
-                  className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700"
-                  onClick={async () => {
-                    if (!managerEmail || !managerPassword) {
-                      alert("Provide email + password");
-                      return;
-                    }
-
-                    setBranchStep(3);
-
-                    // 1. Create Auth user
-                    const { data, error } = await supabase.auth.signUp({
+                  const managerId = data.user?.id;
+                  const { error: insertError } = await supabase
+                    .from("users")
+                    .insert({
+                      id: managerId,
                       email: managerEmail,
-                      password: managerPassword,
+                      role: "manager",
+                      branch: newBranch.toLowerCase(),
                     });
 
-                    if (error) {
-                      alert(error.message);
-                      setBranchStep(2);
-                      return;
-                    }
+                  if (insertError) {
+                    alert(insertError.message);
+                    setBranchStep(2);
+                    return;
+                  }
 
-                    const managerId = data.user?.id;
-
-                    // 2. Insert into users table
-                    const { error: insertError } = await supabase
-                      .from("users")
-                      .insert({
-                        id: managerId,
-                        email: managerEmail,
-                        role: "manager",
-                        branch: newBranch.toLowerCase(),
-                      });
-
-                    if (insertError) {
-                      alert(insertError.message);
-                      setBranchStep(2);
-                      return;
-                    }
-
-                    alert("Branch & Manager created successfully!");
-
-                    // close modal
-                    setBranchOpen(false);
-                    setBranchStep(1);
-                    setNewBranch("");
-                    setManagerEmail("");
-                    setManagerPassword("");
-                    setManagerUserId(null);
-
-                    // reload users
-                    window.location.reload();
-                  }}
-                >
-                  Save Manager
-                </button>
-              </div>
-            )}
-          </div>
+                  alert("Branch & Manager created successfully!");
+                  window.location.reload();
+                }}
+              >
+                Create Branch Infrastructure
+              </Button>
+            </div>
+          )}
         </div>
-      )}
+      </Modal>
 
     </div>
   );

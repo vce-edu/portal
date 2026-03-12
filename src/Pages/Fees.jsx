@@ -1,8 +1,13 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "../createClient";
 import TransactionTable from "../components/TransactionTable";
-import { useAuth } from "../context/AuthContext";
 import { useLocation } from "react-router-dom";
+import Button from "../components/ui/Button";
+import Modal from "../components/ui/Modal";
+import { Input } from "../components/ui/Input";
+import { Card } from "../components/ui/Card";
+import Badge from "../components/ui/Badge";
+import { Table, THead, TBody, TH, TD, TR } from "../components/ui/Table";
 
 const HISTORY_PAGE_LIMIT = 20;
 
@@ -37,7 +42,6 @@ export default function Fees() {
   const [hasMoreHistory, setHasMoreHistory] = useState(false);
 
   // loading flags
-  const [loadingStudent, setLoadingStudent] = useState(false);
   const [loadingSubmit, setLoadingSubmit] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
@@ -70,7 +74,7 @@ export default function Fees() {
   const notifyTransactionTable = () => {
     try {
       window.dispatchEvent(new Event("transactionsUpdated"));
-    } catch (e) {
+    } catch {
       // noop
     }
   };
@@ -144,7 +148,7 @@ export default function Fees() {
     } catch (err) {
       console.error("fetchStudentByRoll:", err);
     } finally {
-      setLoadingStudent(false);
+      // noop
     }
   }, []);
 
@@ -189,10 +193,9 @@ export default function Fees() {
     setLoadingSubmit(true);
     try {
       // NOTE: you insisted on not touching dates, so I keep your formatting logic
-      const [y, m, d] = form.paidOn.split("-");
-      const formattedDate = `${d}/${m}/${y}`;
+      const formattedDate = form.paidOn.split('-').reverse().join('/');
 
-      const { data, error } = await supabase.from("transaction").insert([
+      const { error } = await supabase.from("transaction").insert([
         {
           roll_no: form.roll,
           student_name: form.student,
@@ -225,6 +228,7 @@ export default function Fees() {
       console.error("handleSubmit:", err);
       alert("Unexpected error while adding transaction.");
     } finally {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoadingSubmit(false);
     }
   };
@@ -288,242 +292,170 @@ export default function Fees() {
   };
 
   return (
-    <div className="relative min-h-screen p-4">
-      <div className="flex gap-4 mt-4">
-        <button
-          onClick={() => setOpen(true)}
-          className="px-5 py-2 text-base font-medium text-white bg-purple-700 hover:bg-purple-600 rounded-xl shadow-lg transition"
-        >
-          Update Fees
-        </button>
+    <div className="p-2 sm:p-6 max-w-7xl mx-auto space-y-8">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <h1 className="text-2xl md:text-5xl font-black text-gray-900 tracking-tight">Finance</h1>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <Button
+            onClick={() => setOpen(true)}
+            variant="primary"
+            className="flex-1 sm:flex-none shadow-purple-200"
+            icon={() => (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
+          >
+            Update Fees
+          </Button>
 
-        <button
-          onClick={openHistoryPrompt}
-          className="px-5 py-2 bg-green-500 text-white rounded-xl hover:bg-green-400 shadow-lg transition"
-        >
-          Fees History
-        </button>
+          <Button
+            onClick={openHistoryPrompt}
+            variant="secondary"
+            className="flex-1 sm:flex-none"
+            icon={() => (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
+          >
+            Fees History
+          </Button>
+        </div>
       </div>
 
-      <TransactionTable />
-
-      <h1 className="text-xl font-semibold text-gray-200 mt-12">Fees</h1>
+      <Card className="bg-white/50 backdrop-blur-sm border-purple-50">
+        <TransactionTable />
+      </Card>
 
       {/* ----- Payment Modal ----- */}
-      {open && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-2xl shadow-xl w-80 border border-purple-700">
-            <h2 className="text-lg font-semibold text-black mb-4">Fees Payment</h2>
+      <Modal
+        isOpen={open}
+        onClose={() => setOpen(false)}
+        title="Fees Payment"
+        maxWidth="max-w-sm"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={loadingSubmit}>Cancel</Button>
+            <Button onClick={handleSubmit} loading={loadingSubmit}>Pay Now</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Roll Number"
+            name="roll"
+            value={form.roll}
+            onChange={handleChange}
+            placeholder="e.g. m_101"
+            autoFocus
+          />
+          <Input label="Student Name" value={form.student} readOnly placeholder="Auto-filled" />
+          <Input label="Father Name" value={form.father} readOnly placeholder="Auto-filled" />
 
-            <input
-              name="roll"
-              placeholder="Roll Number"
-              value={form.roll}
-              className="w-full p-2 mb-2 bg-gray-100 text-black rounded-md border border-purple-700"
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Amount"
+              name="amount"
+              type="number"
+              value={form.amount}
               onChange={handleChange}
-              autoFocus
+              icon={() => <span className="text-gray-400 font-bold">₹</span>}
             />
+            <Input label="Receipt" name="receipt" value={form.receipt} onChange={handleChange} />
+          </div>
 
-            <input
-              name="student"
-              placeholder="Student Name"
-              value={form.student}
-              className="w-full p-2 mb-2 bg-gray-100 text-black rounded-md border border-purple-700"
-              readOnly
-            />
+          <Input label="Paid On" name="paidOn" type="date" value={form.paidOn} onChange={handleChange} />
+        </div>
+      </Modal>
 
-            <input
-              name="father"
-              placeholder="Father Name"
-              value={form.father}
-              className="w-full p-2 mb-2 bg-gray-100 text-black rounded-md border border-purple-700"
-              readOnly
-            />
+      {/* ----- History Prompt Modal ----- */}
+      <Modal
+        isOpen={historyOpen && !feesHistory.length}
+        onClose={() => setHistoryOpen(false)}
+        title="Lookup History"
+        maxWidth="max-w-sm"
+      >
+        <div className="space-y-6">
+          <Input
+            label="Student Roll"
+            placeholder="Enter roll number..."
+            value={selectedRoll}
+            onChange={(e) => setSelectedRoll(e.target.value)}
+            autoFocus
+          />
 
-            <div className="w-full mb-2 relative">
-              <span className="absolute left-2 top-2.5 text-black">₹</span>
-              <input
-                name="amount"
-                placeholder="Amount"
-                type="number"
-                value={form.amount}
-                className="w-full pl-7 p-2 bg-gray-100 text-black rounded-md border border-purple-700"
-                onChange={handleChange}
-              />
-            </div>
-
-            <input
-              name="receipt"
-              placeholder="Receipt Number"
-              value={form.receipt}
-              className="w-full p-2 mb-2 bg-gray-100 text-black rounded-md border border-purple-700"
-              onChange={handleChange}
-            />
-
-            <label className="text-xs text-gray-600">Paid On</label>
-            <input
-              name="paidOn"
-              type="date"
-              value={form.paidOn}
-              className="w-full p-2 mb-4 bg-gray-100 text-black rounded-md border border-purple-700"
-              onChange={handleChange}
-            />
-
-            <div className="flex justify-between">
-              <button
-                onClick={() => setOpen(false)}
-                className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-md text-white"
-                disabled={loadingSubmit}
-              >
-                Cancel
-              </button>
-
-              <button
-                onClick={handleSubmit}
-                className={`px-4 py-2 rounded-md text-white ${loadingSubmit ? "bg-gray-400 cursor-not-allowed" : "bg-purple-700 hover:bg-purple-600"}`}
-                disabled={loadingSubmit}
-              >
-                {loadingSubmit ? "Processing..." : "Pay"}
-              </button>
+          <div className="grid grid-cols-1 gap-2">
+            <Button
+              onClick={() => {
+                if (!selectedRoll) return alert("Enter a roll number.");
+                fetchFeesHistory(selectedRoll, 0);
+              }}
+              loading={loadingHistory}
+              className="w-full"
+            >
+              Fetch History
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="success" className="flex-1" onClick={openPayForSelectedRoll}>Pay Fees</Button>
+              <Button variant="outline" className="flex-1" onClick={() => setHistoryOpen(false)}>Cancel</Button>
             </div>
           </div>
         </div>
-      )}
-
-      {/* ----- History Prompt Modal (ask roll) ----- */}
-      {historyOpen && !feesHistory.length && (
-        <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-2xl shadow-xl w-80 border border-purple-700 relative">
-            <h2 className="text-lg font-semibold mb-4">Enter Roll Number</h2>
-
-            <input
-              type="text"
-              placeholder="Roll Number"
-              value={selectedRoll.toLowerCase()}
-              onChange={(e) => setSelectedRoll(e.target.value)}
-              className="w-full p-2 mb-4 bg-gray-100 rounded-md border border-purple-700"
-              autoFocus
-            />
-            <div className="flex items-center justify-between gap-3 mt-6">
-              <button
-                onClick={openPayForSelectedRoll}
-                className="h-11 flex-1 bg-green-600 hover:bg-green-500 text-white rounded-lg shadow font-medium transition"
-              >
-                Pay Fees
-              </button>
-
-              <button
-                onClick={() => {
-                  setSelectedRoll("");
-                  setHistoryOpen(false);
-                }}
-                disabled={loadingHistory}
-                className="h-11 flex-1 bg-red-600 hover:bg-red-500 text-white rounded-lg shadow font-medium transition disabled:opacity-60"
-              >
-                Cancel
-              </button>
-
-              <button
-                onClick={() => {
-                  if (!selectedRoll) return alert("Enter a roll number.");
-                  setFeesHistory([]);
-                  fetchFeesHistory(selectedRoll, 0);
-                }}
-                disabled={loadingHistory}
-                className={`h-11 flex-1 rounded-lg shadow font-medium text-white transition ${loadingHistory
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-purple-700 hover:bg-purple-600"
-                  }`}
-              >
-                {loadingHistory ? "Fetching..." : "Fetch"}
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )
-      }
+      </Modal>
 
       {/* ----- History Display Modal ----- */}
-      {
-        feesHistory.length > 0 && (
-          <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50">
-            <div className="bg-white p-6 rounded-2xl shadow-xl w-11/12 md:w-1/2 border border-purple-700 relative">
-              <h2 className="text-lg font-semibold mb-4">
-                Fees History - Roll {selectedRoll}
-              </h2>
-
-              <button
-                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
-                onClick={() => {
-                  setFeesHistory([]);
-                  setSelectedRoll("");
-                  setHistoryOpen(false);
-                }}
-              >
-                ✖
-              </button>
-
-              <div>
-                <h3 className="font-semibold text-lg mb-2 text-center">
-                  {feesHistory[0].student_name ? feesHistory[0].student_name.toUpperCase() : ""}
-                </h3>
-
-                <table className="w-full table-auto border-collapse">
-                  <thead>
-                    <tr className="bg-purple-700 text-white">
-                      <th className="px-4 py-2">Date</th>
-                      <th className="px-4 py-2">Receipt Number</th>
-                      <th className="px-4 py-2">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {feesHistory.map((f) => (
-                      <tr key={f.id} className="text-center border-b">
-                        <td className="px-4 py-2">{f.paid_on}</td>
-                        <td className="px-4 py-2">{f.receipt_no || "-"}</td>
-                        <td className="px-4 py-2">₹{f.amount_paid}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-
-                <div className="flex justify-center mt-4">
-                  {hasMoreHistory ? (
-                    <button
-                      onClick={() => fetchFeesHistory(selectedRoll, historyPage + 1)}
-                      className="px-4 py-2 bg-purple-700 hover:bg-purple-600 rounded-md text-white"
-                      disabled={loadingHistory}
-                    >
-                      {loadingHistory ? "Loading..." : "Load More"}
-                    </button>
-                  ) : (
-                    <div className="text-sm text-gray-500 py-2">No more records</div>
-
-                  )}
-                </div>
-
-                <div className="flex justify-center mt-6 gap-4">
-                  <button
-                    onClick={backToHistoryPrompt}
-                    className="px-6 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg shadow"
-                  >
-                    ← Back
-                  </button>
-                  <button
-                    onClick={openPayForSelectedRoll}
-                    className="px-6 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg shadow"
-                  >
-                    Pay Fees
-                  </button>
-
-                </div>
-
-              </div>
-            </div>
+      <Modal
+        isOpen={feesHistory.length > 0}
+        onClose={() => {
+          setFeesHistory([]);
+          setSelectedRoll("");
+          setHistoryOpen(false);
+        }}
+        title={`History: ${selectedRoll.toUpperCase()}`}
+        maxWidth="max-w-2xl"
+      >
+        <div className="space-y-6">
+          <div className="text-center py-2 bg-purple-50 rounded-2xl border border-purple-100">
+            <p className="text-xs font-bold text-purple-400 uppercase tracking-widest">Student</p>
+            <h3 className="text-xl font-black text-purple-700">
+              {feesHistory[0]?.student_name?.toUpperCase() || "UNNAMED"}
+            </h3>
           </div>
-        )
-      }
-    </div >
+
+          <Table>
+            <THead>
+              <TR className="hover:bg-transparent">
+                <TH>Date</TH>
+                <TH>Receipt</TH>
+                <TH>Amount</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {feesHistory.map((f) => (
+                <TR key={f.id}>
+                  <TD className="text-gray-600 font-medium">{f.paid_on}</TD>
+                  <TD className="text-gray-500">{f.receipt_no || "-"}</TD>
+                  <TD><Badge variant="green">₹{f.amount_paid}</Badge></TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
+
+          {hasMoreHistory && (
+            <div className="flex justify-center">
+              <Button variant="ghost" size="sm" onClick={() => fetchFeesHistory(selectedRoll, historyPage + 1)} loading={loadingHistory}>
+                Load More Records
+              </Button>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-6 border-t border-gray-100">
+            <Button variant="secondary" className="flex-1" onClick={backToHistoryPrompt}>← Back</Button>
+            <Button variant="success" className="flex-1" onClick={openPayForSelectedRoll}>Pay New Fees</Button>
+          </div>
+        </div>
+      </Modal>
+    </div>
   );
 }
