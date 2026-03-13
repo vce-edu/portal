@@ -20,28 +20,38 @@ const CardHeader = ({ title, subtitle, action, className = "" }) => (
     </div>
 );
 
-const StatsCard = ({ title, value, variant = "purple", icon: Icon }) => {
+const StatsCard = ({ title, value, subtitle, variant = "purple", icon: Icon }) => {
     const titleColors = {
         purple: "text-purple-600",
         blue: "text-blue-600",
         green: "text-green-600",
         yellow: "text-yellow-600",
         red: "text-red-600",
+        success: "text-emerald-600",
+        danger: "text-rose-600",
     };
+
+    const isPositive = subtitle?.startsWith("+");
+    const isNegative = subtitle?.startsWith("-");
 
     return (
         <Card className="hover:shadow-2xl transition-all duration-300 group">
             <div className="flex items-start justify-between">
                 <div>
-                    <p className="text-xs md:text-sm font-bold text-gray-400 uppercase tracking-widest mb-1 md:mb-2 italic">
+                    <p className="text-xs md:text-sm font-bold text-gray-400 capitalize tracking-widest mb-1 md:mb-2 italic">
                         {title}
                     </p>
                     <p className="text-2xl md:text-4xl font-black text-gray-900 group-hover:scale-105 transition-transform origin-left">
                         {value}
                     </p>
+                    {subtitle && (
+                        <p className={`text-[10px] md:text-xs font-bold mt-1 md:mt-2 ${isPositive ? "text-emerald-500" : isNegative ? "text-rose-500" : "text-gray-400"}`}>
+                            {subtitle}
+                        </p>
+                    )}
                 </div>
                 {Icon && (
-                    <div className={`p-3 rounded-2xl bg-gray-50 ${titleColors[variant]} group-hover:bg-white group-hover:shadow-lg transition-all`}>
+                    <div className={`p-3 rounded-2xl bg-gray-50/50 ${titleColors[variant]} group-hover:bg-white group-hover:shadow-lg transition-all`}>
                         <Icon className="w-6 h-6 md:w-8 md:h-8" />
                     </div>
                 )}

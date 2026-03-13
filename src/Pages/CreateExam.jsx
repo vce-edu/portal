@@ -63,6 +63,16 @@ function ExamDetailView({ exam, onBack, onSaved, questionPool }) {
         finally { setSaving(false); }
     };
 
+    const handleDeleteExam = async () => {
+        if (!window.confirm(`Are you sure you want to permanently delete "${exam.exam_id}"? This cannot be undone.`)) return;
+        try {
+            const { error } = await thirdSupabase.from("exam_info").delete().eq("exam_id", exam.exam_id);
+            if (error) throw error;
+            onBack(); // Return to list after deletion
+            onSaved?.();
+        } catch (err) { setMsg({ type: "error", text: err.message }); }
+    };
+
     const handleRemoveQuestion = async (questionId) => {
         try {
             const { error } = await thirdSupabase.from("exam_questions")
@@ -188,12 +198,23 @@ function ExamDetailView({ exam, onBack, onSaved, questionPool }) {
                 <div className="flex items-center gap-3 flex-wrap">
                     <Badge variant={exam.restricted ? "red" : "green"}>{exam.restricted ? "Restricted" : "Public"}</Badge>
                     {!editMode ? (
-                        <Button onClick={() => setEditMode(true)} variant="outline">
-                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                            Edit Info
-                        </Button>
+                        <>
+                            <Button onClick={() => setEditMode(true)} variant="outline">
+                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                                Edit Info
+                            </Button>
+                            <button
+                                onClick={handleDeleteExam}
+                                className="p-2 rounded-2xl text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors border border-red-100"
+                                title="Delete Exam"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
+                        </>
                     ) : (
                         <div className="flex gap-2">
                             <Button variant="outline" onClick={() => { setEditMode(false); setForm({ ...exam }); }}>Cancel</Button>
@@ -479,7 +500,7 @@ function ExamDetailView({ exam, onBack, onSaved, questionPool }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function CreateExam() {
-    const { user } = useAuth();
+    const { user, staffId } = useAuth();
     const [view, setView] = useState("list");
     const [selectedExam, setSelectedExam] = useState(null);
 
@@ -490,7 +511,7 @@ export default function CreateExam() {
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [createMessage, setCreateMessage] = useState({ type: "", text: "" });
-    const [examInfo, setExamInfo] = useState({ exam_id: "", branch: "", duration_mins: 60, total_score: 100, total_questions: 20, restricted: false, created_by: 1 });
+    const [examInfo, setExamInfo] = useState({ exam_id: "", branch: "", duration_mins: 60, total_score: 100, total_questions: 20, restricted: false });
     const [selectedPoolIds, setSelectedPoolIds] = useState([]);
     const [newQuestions, setNewQuestions] = useState([]);
 
@@ -533,7 +554,7 @@ export default function CreateExam() {
         try {
             if (!examInfo.exam_id || !examInfo.branch) throw new Error("Exam ID and Branch are required.");
             const { data, error } = await thirdSupabase.rpc("create_complete_exam", {
-                p_exam_info: { ...examInfo, created_by: 1 },
+                p_exam_info: { ...examInfo, created_by: staffId },
                 p_new_questions: newQuestions,
                 p_existing_question_ids: selectedPoolIds.length > 0 ? selectedPoolIds : null,
             });
@@ -541,7 +562,7 @@ export default function CreateExam() {
             setListMessage({ type: "success", text: `Exam "${data}" published successfully!` });
             setView("list");
             setStep(1);
-            setExamInfo({ exam_id: "", branch: "", duration_mins: 60, total_score: 100, total_questions: 20, restricted: false, created_by: 1 });
+            setExamInfo({ exam_id: "", branch: "", duration_mins: 60, total_score: 100, total_questions: 20, restricted: false });
             setNewQuestions([]);
             setSelectedPoolIds([]);
             fetchExams();

@@ -8,7 +8,10 @@ export const menuConfig = {
     { name: "Add and View Students", route: "/portal/students" },
     { name: "Manage Fees", route: "/portal/fees" },
     { name: "Fees Status", route: "/portal/status" },
+    { name: "Upload Diploma", route: "/portal/upload-diploma" },
     { name: "Notes", route: "/portal/notes" },
+    { name: "Events", route: "/portal/events" },
+    { name: "Pending Applications", route: "/portal/pending-applications" },
   ],
 
   manager: [
@@ -20,6 +23,7 @@ export const menuConfig = {
     { name: "Manage Fees", route: "/portal/fees" },
     { name: "Fees Status", route: "/portal/status" },
     { name: "Notes", route: "/portal/notes" },
+    { name: "Events", route: "/portal/events" },
   ],
 
   staff: [

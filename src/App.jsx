@@ -11,7 +11,12 @@ import Fees from "./Pages/Fees";
 import Status from "./Pages/Status";
 import PersonalNotes from "./Pages/PersonalNotes";
 import CreateExam from "./Pages/CreateExam";
+import UploadDiploma from "./Pages/UploadDiploma";
+import Events from "./Pages/Events";
 import Button from "./components/ui/Button";
+import OwnerRoute from "./components/OwnerRoute";
+
+import PendingApplications from "./Pages/PendingApplications";
 
 export default function App() {
   return (
@@ -45,6 +50,23 @@ export default function App() {
         <Route path="/portal/performance" element={<Performance />} />
         <Route path="/portal/notes" element={<PersonalNotes />} />
         <Route path="/portal/create-exam" element={<CreateExam />} />
+        <Route path="/portal/events" element={<Events />} />
+        <Route
+          path="/portal/upload-diploma"
+          element={
+            <OwnerRoute>
+              <UploadDiploma />
+            </OwnerRoute>
+          }
+        />
+        <Route
+          path="/portal/pending-applications"
+          element={
+            <OwnerRoute>
+              <PendingApplications />
+            </OwnerRoute>
+          }
+        />
         <Route path="*" element={<div className="p-10 text-center"><h1>404 - Page Not Found</h1><p>Location: {window.location.pathname}</p><Button onClick={() => window.location.href = '/portal/dashboard'}>Go Dashboard</Button></div>} />
       </Route>
     </Routes>

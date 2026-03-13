@@ -7,17 +7,19 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null);
   const [branch, setBranch] = useState(null);
+  const [staffId, setStaffId] = useState(null);
   const [loading, setLoading] = useState(true);
 
   async function fetchRole(userId) {
     const { data: profile } = await supabase
       .from("users")
-      .select("role, branch")
+      .select("role, branch, user_id")
       .eq("id", userId)
       .single();
 
     setRole(profile?.role || null);
     setBranch(profile?.branch);
+    setStaffId(profile?.user_id || null);
     setLoading(false);
   }
 
@@ -38,11 +40,12 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setRole(null);
     setBranch(null);
+    setStaffId(null);
     setLoading(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, role, branch, setUser, fetchRole, loading, setLoading, logout }}>
+    <AuthContext.Provider value={{ user, role, branch, staffId, setUser, fetchRole, loading, setLoading, logout }}>
       {children}
     </AuthContext.Provider>
   );
