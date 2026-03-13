@@ -4,9 +4,14 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "../components/ui/Button";
 import { StatsCard } from "../components/ui/Card";
+import StaffDashboard from "./StaffDashboard";
 
 export default function Dashboard() {
-  const { user, branch } = useAuth();
+  const { user, branch, role } = useAuth();
+
+  if (role === "staff") {
+    return <StaffDashboard />;
+  }
   const name = user?.user_metadata?.display_name || "User";
   const userBranch = branch || "all";
 

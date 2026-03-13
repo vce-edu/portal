@@ -28,8 +28,9 @@ export const menuConfig = {
 
   staff: [
     { name: "Dashboard", route: "/portal/dashboard" },
-    { name: "Create Exam", route: "/portal/create-exam" },
     { name: "Student Performance", route: "/portal/performance" },
+    { name: "Create Exam", route: "/portal/create-exam" },
     { name: "Notes", route: "/portal/notes" },
+    { name: "Events", route: "/portal/events" },
   ],
 };
