@@ -4,7 +4,8 @@ import { Card } from "../components/ui/Card";
 import { Table, THead, TBody, TH, TD, TR } from "../components/ui/Table";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
-import { Select } from "../components/ui/Input";
+import { Select, Input } from "../components/ui/Input";
+import Modal from "../components/ui/Modal";
 
 const ITEMS_PER_PAGE = 15;
 
@@ -26,6 +27,12 @@ export default function PendingApplications() {
     const [startDate, setStartDate] = useState(formatDate(firstOfMonth));
     const [endDate, setEndDate] = useState(formatDate(today));
     const [selectedStaff, setSelectedStaff] = useState(null);
+    const [confirmingItem, setConfirmingItem] = useState(null);
+    const [confirmFormData, setConfirmFormData] = useState({
+        roll_number: "",
+        batch_time: "",
+        addmission_date: formatDate(today)
+    });
 
     // Fetch unique branches
     useEffect(() => {
@@ -53,6 +60,76 @@ export default function PendingApplications() {
 
         setStaffStats(stats || []);
     }, [activeTab, startDate, endDate]);
+
+    const handleConfirm = async (item) => {
+        if (activeTab === "scholarship") {
+            const { error } = await secSupabase
+                .from("scholarship_application")
+                .update({ isConfirmed: true })
+                .eq("application_id", item.application_id);
+            if (error) console.error("Confirm error:", error);
+            else fetchPendingData();
+        } else if (activeTab === "student") {
+            setConfirmingItem(item);
+            setConfirmFormData({
+                roll_number: item.scholarship_roll || "",
+                batch_time: item.class_duration || "",
+                addmission_date: formatDate(today)
+            });
+        }
+    };
+
+    const executeStudentConfirmation = async () => {
+        if (!confirmingItem) return;
+
+        try {
+            const prefix = confirmingItem.branch ? confirmingItem.branch.trim().toLowerCase().charAt(0) + "_" : "";
+            const finalRollNumber = `${prefix}${confirmFormData.roll_number}`;
+
+            const studentData = {
+                roll_number: finalRollNumber,
+                student_name: confirmingItem.student_name,
+                father_name: confirmingItem.father_name || "—",
+                course: confirmingItem.course_name || "General",
+                duration: confirmingItem.class_duration || null,
+                fee_month: confirmingItem.monthly_fee ? parseFloat(confirmingItem.monthly_fee) : null,
+                branch: confirmingItem.branch,
+                phone_number: confirmingItem.phone || "—",
+                addmission_date: confirmFormData.addmission_date,
+                mother_name: confirmingItem.mother_name || "—",
+                batch_time: confirmFormData.batch_time || null
+            };
+
+            const { error: insertError } = await supabase.from("students").insert([studentData]);
+            if (insertError) throw insertError;
+
+            const { error: deleteError } = await secSupabase
+                .from("student_admissions")
+                .delete()
+                .eq("id", confirmingItem.id);
+            if (deleteError) console.error("Error deleting from admissions:", deleteError);
+
+            setConfirmingItem(null);
+            fetchPendingData();
+            alert("Student admission confirmed successfully!");
+        } catch (error) {
+            console.error("Confirmation error:", error);
+            alert("Error confirming admission: " + error.message);
+        }
+    };
+
+    const handleDelete = async (item) => {
+        const tableMap = {
+            scholarship: { table: "scholarship_application", key: "application_id" },
+            student: { table: "student_admissions", key: "id" },
+            transaction: { table: "payments", key: "id" }
+        };
+        const { table, key } = tableMap[activeTab];
+        const { error, count } = await secSupabase.from(table).delete().eq(key, item[key]).select();
+        console.log("Delete result - error:", error, "count:", count);
+        if (error) console.error("Delete error:", error);
+        else fetchPendingData();
+    };
 
     const fetchPendingData = useCallback(async () => {
         setLoading(true);
@@ -285,6 +362,7 @@ export default function PendingApplications() {
                                         <TH className="py-5">Course</TH>
                                         <TH className="py-5">Branch</TH>
                                         <TH className="py-5 text-right pr-8">Applied On</TH>
+                                        <TH className="py-5 text-right pr-8">Action</TH>
                                     </>
                                 )}
                                 {activeTab === "transaction" && (
@@ -343,10 +421,10 @@ export default function PendingApplications() {
                                                 </TD>
                                                 <TD className="py-4 text-right pr-8">
                                                     <div className="flex items-center justify-end gap-2">
-                                                        <button className="px-3 py-1.5 text-[11px] font-black text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors">
+                                                        <button className="px-3 py-1.5 text-[11px] font-black text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors" onClick={() => handleConfirm(item)}>
                                                             Confirm
                                                         </button>
-                                                        <button className="px-3 py-1.5 text-[11px] font-black text-red-500 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
+                                                        <button className="px-3 py-1.5 text-[11px] font-black text-red-500 bg-red-50 hover:bg-red-100 rounded-lg transition-colors" onClick={() => handleDelete(item)}>
                                                             Delete
                                                         </button>
                                                     </div>
@@ -355,6 +433,7 @@ export default function PendingApplications() {
                                         )}
                                         {activeTab === "student" && (
                                             <>
+                                                <TD className="py-4 text-[10px] text-gray-300">{item.id}</TD>
                                                 <TD className="py-4 font-black text-gray-900">{item.student_name}</TD>
                                                 <TD className="py-4">
                                                     <div className="space-y-0.5">
@@ -370,6 +449,16 @@ export default function PendingApplications() {
                                                 </TD>
                                                 <TD className="py-4 text-right pr-8 text-[10px] font-bold text-gray-400">
                                                     {new Date(item.created_at).toLocaleDateString()}
+                                                </TD>
+                                                <TD className="py-4 text-right pr-8">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <button className="px-3 py-1.5 text-[11px] font-black text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors" onClick={() => handleConfirm(item)}>
+                                                            Confirm
+                                                        </button>
+                                                        <button className="px-3 py-1.5 text-[11px] font-black text-red-500 bg-red-50 hover:bg-red-100 rounded-lg transition-colors" onClick={() => handleDelete(item)}>
+                                                            Delete
+                                                        </button>
+                                                    </div>
                                                 </TD>
                                             </>
                                         )}
@@ -425,6 +514,67 @@ export default function PendingApplications() {
                     High-Performance RPC Tunnel Active · Scalable to {totalCount > 1000000 ? "Billions" : "Millions"}
                 </p>
             </div>
+
+            {/* Confirmation Modal */}
+            <Modal
+                isOpen={!!confirmingItem}
+                onClose={() => setConfirmingItem(null)}
+                title="Confirm Student Admission"
+                footer={
+                    <>
+                        <Button variant="outline" onClick={() => setConfirmingItem(null)}>Cancel</Button>
+                        <Button variant="primary" onClick={executeStudentConfirmation}>Confirm & Move to Students</Button>
+                    </>
+                }
+            >
+                <div className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4">
+                        <Input
+                            label="Roll Number"
+                            value={confirmFormData.roll_number}
+                            onChange={(e) => setConfirmFormData({ ...confirmFormData, roll_number: e.target.value })}
+                            placeholder="e.g. 1234"
+                            required
+                        />
+                        <Input
+                            label="Batch Time"
+                            value={confirmFormData.batch_time}
+                            onChange={(e) => setConfirmFormData({ ...confirmFormData, batch_time: e.target.value })}
+                            placeholder="e.g. 10:00 AM - 12:00 PM"
+                        />
+                        <Input
+                            label="Admission Date"
+                            type="date"
+                            value={confirmFormData.addmission_date}
+                            onChange={(e) => setConfirmFormData({ ...confirmFormData, addmission_date: e.target.value })}
+                        />
+                    </div>
+
+                    {confirmingItem && (
+                        <div className="mt-6 p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-2">
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Student Summary</p>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div>
+                                    <p className="text-gray-400">Name</p>
+                                    <p className="font-bold text-gray-900">{confirmingItem.student_name}</p>
+                                </div>
+                                <div>
+                                    <p className="text-gray-400">Course</p>
+                                    <p className="font-bold text-gray-900">{confirmingItem.course_name}</p>
+                                </div>
+                                <div>
+                                    <p className="text-gray-400">Branch</p>
+                                    <p className="font-bold text-purple-600 uppercase">{confirmingItem.branch}</p>
+                                </div>
+                                <div>
+                                    <p className="text-gray-400">Phone</p>
+                                    <p className="font-bold text-gray-900">{confirmingItem.phone}</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </Modal>
         </div>
     );
 }
