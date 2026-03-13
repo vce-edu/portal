@@ -236,13 +236,13 @@ export default function Branches() {
       {/* Header Section */}
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
         <div>
-          <h1 className="text-4xl md:text-6xl font-black text-gray-900 tracking-tight flex items-center gap-4">
+          <h1 className="text-4xl md:text-7xl font-black text-gray-900 tracking-tighter flex items-center gap-6">
             Branches
-            <Badge variant="purple" className="text-sm md:text-lg px-4 py-1.5 rounded-2xl animate-pulse">
+            <Badge variant="purple" className="text-sm md:text-lg px-5 py-2 rounded-2xl animate-pulse shadow-lg shadow-purple-100">
               {Object.keys(groupedData).length} Nodes
             </Badge>
           </h1>
-          <p className="text-lg md:text-xl mt-3 text-gray-500 font-bold max-w-2xl leading-relaxed italic border-l-4 border-purple-200 pl-6">
+          <p className="text-lg md:text-xl mt-4 text-purple-950 font-black max-w-3xl leading-relaxed border-l-8 border-purple-600 pl-8">
             Unified management of regional operations units and administrative access hierarchy.
           </p>
         </div>
@@ -283,33 +283,33 @@ export default function Branches() {
         {Object.keys(groupedData).map((branchName) => (
           <Card key={branchName} noPadding className="bg-white border-none shadow-sm hover:shadow-2xl transition-all duration-500 overflow-hidden group">
             {/* Card Header Top */}
-            <div className="bg-gradient-to-br from-purple-700 to-purple-900 p-8 relative">
-              <div className="absolute top-0 right-0 p-4">
-                <div className="bg-white/10 backdrop-blur-md rounded-2xl px-3 py-1 text-white/80 text-[10px] font-black uppercase tracking-widest border border-white/5">
+            <div className="bg-gradient-to-br from-purple-800 to-purple-950 p-10 relative">
+              <div className="absolute top-0 right-0 p-6">
+                <div className="bg-white/20 backdrop-blur-md rounded-2xl px-4 py-1.5 text-white text-xs font-black uppercase tracking-widest border border-white/20 shadow-xl">
                   Active Node
                 </div>
               </div>
 
-              <h3 className="text-3xl font-black text-white uppercase tracking-tighter mb-1 truncate pr-20">
+              <h3 className="text-3xl font-black text-white uppercase tracking-tighter mb-2 truncate pr-24">
                 {branchName}
               </h3>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-ping"></div>
-                <p className="text-purple-100/60 text-xs font-bold uppercase tracking-widest italic">Operational Unit</p>
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 bg-emerald-400 rounded-full animate-ping shadow-lg shadow-emerald-400"></div>
+                <p className="text-purple-100/90 text-sm font-black uppercase tracking-[0.2em] italic">Operational Ledger Unit</p>
               </div>
             </div>
 
             <div className="p-8 space-y-8 bg-white relative">
               {/* Stats row */}
               <div className="flex justify-between items-center -mt-14 pb-4">
-                <div className="flex bg-white shadow-xl rounded-3xl p-2 border border-purple-50">
-                  <div className="px-4 py-2 text-center border-r border-gray-100">
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Managers</p>
-                    <p className="text-lg font-black text-purple-600">{groupedData[branchName].manager.length}</p>
+                <div className="flex bg-white shadow-2xl rounded-3xl p-3 border border-purple-100">
+                  <div className="px-5 py-3 text-center border-r border-gray-100">
+                    <p className="text-[10px] font-black text-purple-950 uppercase tracking-widest mb-1">Managers</p>
+                    <p className="text-2xl font-black text-purple-700 tracking-tighter">{groupedData[branchName].manager.length}</p>
                   </div>
-                  <div className="px-4 py-2 text-center">
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Staff</p>
-                    <p className="text-lg font-black text-gray-900">{groupedData[branchName].staff.length}</p>
+                  <div className="px-5 py-3 text-center">
+                    <p className="text-[10px] font-black text-purple-950 uppercase tracking-widest mb-1">Staff</p>
+                    <p className="text-2xl font-black text-gray-900 tracking-tighter">{groupedData[branchName].staff.length}</p>
                   </div>
                 </div>
                 <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-300 font-black text-xl italic group-hover:text-purple-600 group-hover:bg-purple-50 transition-all">
@@ -321,17 +321,17 @@ export default function Branches() {
                 {/* OWNER Section */}
                 {groupedData[branchName].owner.length > 0 && (
                   <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="p-1 px-2.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                    <div className="flex items-center gap-4">
+                      <div className="p-1 px-3 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-black uppercase tracking-[0.2em]">
                         Owners
                       </div>
-                      <div className="h-px bg-emerald-50 flex-1"></div>
+                      <div className="h-px bg-emerald-100 flex-1"></div>
                     </div>
                     <div className="space-y-2">
                       {groupedData[branchName].owner.map((u) => (
-                        <div key={u.id} className="flex items-center gap-3 p-3 bg-emerald-50/30 rounded-2xl border border-emerald-50/50 group/item hover:bg-emerald-50 transition-colors">
-                          <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                          <p className="text-sm font-bold text-gray-700 truncate flex-1">{u.display_name || u.email}</p>
+                        <div key={u.id} className="flex items-center gap-4 p-4 bg-emerald-50/30 rounded-3xl border border-emerald-50 group/item hover:bg-emerald-50 transition-all duration-300">
+                          <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-lg shadow-emerald-200"></div>
+                          <p className="text-base font-black text-gray-800 truncate flex-1">{u.display_name || u.email}</p>
                           <button
                             onClick={() => {
                               setSelectedUser(u);

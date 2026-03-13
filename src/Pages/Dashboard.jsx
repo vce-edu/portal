@@ -24,10 +24,10 @@ export default function Dashboard() {
 
   const quickActions = [
     { label: "Add Student", path: "/portal/students" },
-    { label: "Add Branch", path: "/portal/branches" },
-    { label: "View Reports", path: "/portal/reports" },
-    { label: "Manage Staff", path: "/portal/staff" },
-    { label: "Upload Study Material", path: "/portal/study-material" },
+    { label: "Manage Branches", path: "/portal/branches" },
+    { label: "Revenue Analytics", path: "/portal/revenue" },
+    { label: "Students Performance", path: "/portal/performance" },
+    { label: "Update Events", path: "/portal/events" },
   ];
 
   // ------------------------------
@@ -149,27 +149,27 @@ export default function Dashboard() {
   return (
     <div className="p-2 sm:p-4 md:p-10 space-y-6 md:space-y-12">
       {/* -------- Header -------- */}
-      <div className="px-2 sm:px-0">
-        <h1 className="text-2xl md:text-5xl font-black md:font-extrabold tracking-tight text-gray-900 border-l-4 border-purple-600 pl-4 md:pl-0 md:border-none">
+      <div className="px-4 sm:px-0">
+        <h1 className="text-3xl md:text-5xl font-black tracking-tight text-gray-900 border-l-8 border-purple-600 pl-6 md:pl-0 md:border-none">
           Dashboard
         </h1>
-        <p className="text-sm md:text-lg mt-1 md:mt-2 text-gray-600" style={{ fontFamily: "Poppins, sans-serif" }}>
+        <p className="text-sm md:text-xl mt-2 md:mt-4 text-purple-950 font-semibold" style={{ fontFamily: "Poppins, sans-serif" }}>
           Welcome back,
-          <span className="text-purple-600 font-bold ml-1">{name}</span>.
+          <span className="text-purple-600 font-black ml-2 underline decoration-purple-100 underline-offset-8">{name}</span>.
         </p>
       </div>
 
       {/* -------- Quick Actions -------- */}
-      <div className="px-2 sm:px-0">
-        <h2 className="text-lg md:text-2xl font-bold mb-3 md:mb-4 text-gray-800">Quick Actions</h2>
-        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 md:gap-4">
+      <div className="px-4 sm:px-0">
+        <h2 className="text-lg md:text-2xl font-black mb-4 md:mb-6 text-gray-800 tracking-tight">Quick Actions</h2>
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3 md:gap-5">
           {quickActions.map((action) => (
             <Button
               key={action.label}
               onClick={() => navigate(action.path)}
               variant="primary"
-              size="md"
-              className="rounded-2xl"
+              size="lg"
+              className="rounded-2xl py-4 flex-1 sm:flex-initial text-base font-black tracking-tight shadow-lg shadow-purple-100"
             >
               {action.label}
             </Button>

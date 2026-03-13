@@ -498,7 +498,7 @@ export default function PendingApplications() {
                                                         {staffMap[item.staff_id] || "—"}
                                                     </span>
                                                 </TD>
-                                                <TD className="py-4 text-[10px] font-bold text-gray-400">
+                                                <TD className="py-5 text-sm font-black text-purple-950">
                                                     {new Date(item.created_at).toLocaleDateString()}
                                                 </TD>
                                                 <TD className="py-4 text-right pr-8">
@@ -517,19 +517,19 @@ export default function PendingApplications() {
                                             <>
                                                 <TD className="py-4 text-[10px] text-gray-300">{item.id}</TD>
                                                 <TD className="py-4 font-black text-gray-900">{item.student_name}</TD>
-                                                <TD className="py-4">
-                                                    <div className="space-y-0.5">
-                                                        <p className="text-xs font-bold text-gray-700">{item.phone || "—"}</p>
-                                                        <p className="text-[10px] text-gray-400">{item.email || "—"}</p>
+                                                <TD className="py-5">
+                                                    <div className="space-y-1">
+                                                        <p className="text-base font-black text-gray-700">{item.phone || "—"}</p>
+                                                        <p className="text-sm font-bold text-purple-900/40">{item.email || "—"}</p>
                                                     </div>
                                                 </TD>
-                                                <TD className="py-4">
-                                                    <Badge variant="purple" className="text-[10px] uppercase font-black">{item.course_name || "General"}</Badge>
+                                                <TD className="py-5">
+                                                    <Badge variant="purple" className="text-xs uppercase font-black px-3 py-1">{item.course_name || "General"}</Badge>
                                                 </TD>
                                                 <TD className="py-4">
                                                     <Badge variant="blue" className="capitalize">{item.branch}</Badge>
                                                 </TD>
-                                                <TD className="py-4 text-right pr-8 text-[10px] font-bold text-gray-400">
+                                                <TD className="py-5 text-right pr-8 text-sm font-black text-purple-950">
                                                     {new Date(item.created_at).toLocaleDateString()}
                                                 </TD>
                                                 <TD className="py-4 text-right pr-8">
@@ -547,9 +547,9 @@ export default function PendingApplications() {
                                         {activeTab === "transaction" && (
                                             <>
                                                 <TD className="py-4 font-black text-gray-900 uppercase tracking-wider">{item.roll_number}</TD>
-                                                <TD className="py-4 font-black text-emerald-600">₹{Number(item.amount_paid).toLocaleString()}</TD>
-                                                <TD className="py-4 text-gray-500 text-xs font-bold">{item.paid_on}</TD>
-                                                <TD className="py-4 text-right pr-8 text-[10px] font-bold text-gray-400">
+                                                <TD className="py-5 font-black text-emerald-600 text-lg">₹{Number(item.amount_paid).toLocaleString()}</TD>
+                                                <TD className="py-5 text-purple-900 text-sm font-black uppercase tracking-widest">{item.paid_on}</TD>
+                                                <TD className="py-5 text-right pr-8 text-sm font-black text-purple-950">
                                                     {new Date(item.created_at).toLocaleString()}
                                                 </TD>
                                             </>
@@ -563,8 +563,8 @@ export default function PendingApplications() {
 
                 {/* Pagination Footer */}
                 {totalPages > 1 && (
-                    <div className="p-6 bg-gray-50/50 border-t border-gray-100 flex justify-between items-center">
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                    <div className="p-8 bg-purple-100 border-t border-purple-200 flex justify-between items-center">
+                        <p className="text-sm font-black text-purple-950 uppercase tracking-[0.2em]">
                             Page {page + 1} of {totalPages}
                         </p>
                         <div className="flex gap-2">
@@ -590,9 +590,9 @@ export default function PendingApplications() {
             </Card>
 
             {/* Scalability Hint */}
-            <div className="flex items-center justify-center gap-2 py-4">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+            <div className="flex items-center justify-center gap-3 py-6">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-lg shadow-emerald-200" />
+                <p className="text-xs font-black text-purple-950/30 uppercase tracking-[0.3em]">
                     High-Performance RPC Tunnel Active · Scalable to {totalCount > 1000000 ? "Billions" : "Millions"}
                 </p>
             </div>
@@ -710,12 +710,12 @@ export default function PendingApplications() {
                         </div>
                     )}
 
-                    <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-center gap-4">
-                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-lg shadow-sm">🆔</div>
+                    <div className="p-6 bg-purple-50/50 rounded-3xl border border-purple-100 flex items-center gap-6">
+                        <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center text-2xl shadow-sm">🆔</div>
                         <div>
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Candidate Information</p>
-                            <p className="text-sm font-black text-gray-900">{confirmingItem?.full_name}</p>
-                            <p className="text-[10px] font-bold text-gray-400">{confirmingItem?.branch?.toUpperCase()} • {confirmingItem?.phone_number}</p>
+                            <p className="text-xs font-black text-purple-900/40 uppercase tracking-[0.2em] mb-1">Candidate Information</p>
+                            <p className="text-lg font-black text-gray-900">{confirmingItem?.full_name}</p>
+                            <p className="text-sm font-black text-purple-600 uppercase tracking-tight">{confirmingItem?.branch} • {confirmingItem?.phone_number}</p>
                         </div>
                     </div>
                 </div>

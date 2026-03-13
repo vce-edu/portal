@@ -191,7 +191,7 @@ export default function Scholarship() {
                     <h1 className="text-4xl md:text-6xl font-black text-gray-900 tracking-tighter">
                         Scholarship <span className="text-emerald-600 italic">Pool</span>
                     </h1>
-                    <p className="text-gray-500 font-medium max-w-md">
+                    <p className="text-sm md:text-xl mt-2 md:mt-4 text-purple-950 font-semibold max-w-2xl leading-relaxed">
                         Manage and track results for students in the scholarship program.
                     </p>
                 </div>
@@ -330,8 +330,8 @@ export default function Scholarship() {
                 </div>
 
                 {totalPages > 1 && (
-                    <div className="p-8 bg-gray-50/50 border-t border-gray-100 flex justify-between items-center">
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                    <div className="p-8 bg-purple-100 border-t border-purple-200 flex justify-between items-center">
+                        <p className="text-xs font-black text-purple-950 uppercase tracking-[0.2em]">
                             Dataset Segment {page + 1} of {totalPages}
                         </p>
                         <div className="flex gap-3">
@@ -358,9 +358,9 @@ export default function Scholarship() {
 
             {/* Footer Footer */}
             <div className="flex flex-col items-center justify-center gap-2 py-6">
-                <div className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                <div className="flex items-center gap-3">
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-lg shadow-emerald-200" />
+                    <p className="text-xs md:text-sm font-black text-purple-950/30 uppercase tracking-[0.3em]">
                         Scholarship Ledger Node Active · Auto-Save Enabled
                     </p>
                 </div>

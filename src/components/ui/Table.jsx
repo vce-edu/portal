@@ -9,7 +9,7 @@ const Table = ({ children, className = "" }) => (
 );
 
 const THead = ({ children, className = "" }) => (
-    <thead className={`bg-gray-50/50 ${className}`}>
+    <thead className={`bg-purple-100 border-b-2 border-purple-200 ${className}`}>
         {children}
     </thead>
 );
@@ -21,13 +21,13 @@ const TBody = ({ children, className = "" }) => (
 );
 
 const TH = ({ children, className = "" }) => (
-    <th className={`px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider ${className}`}>
+    <th className={`px-6 py-5 text-sm font-black text-purple-950 uppercase tracking-[0.1em] ${className}`}>
         {children}
     </th>
 );
 
 const TD = ({ children, className = "" }) => (
-    <td className={`px-6 py-4 text-sm ${className}`}>
+    <td className={`px-6 py-5 text-base font-medium text-gray-700 ${className}`}>
         {children}
     </td>
 );

@@ -13,8 +13,8 @@ const Card = ({ children, className = "", noPadding = false }) => {
 const CardHeader = ({ title, subtitle, action, className = "" }) => (
     <div className={`flex items-center justify-between mb-4 md:mb-6 ${className}`}>
         <div>
-            <h3 className="text-lg md:text-xl font-bold text-gray-900">{title}</h3>
-            {subtitle && <p className="text-xs md:text-sm text-gray-500 font-medium">{subtitle}</p>}
+            <h3 className="text-lg md:text-xl font-black text-gray-900 leading-tight">{title}</h3>
+            {subtitle && <p className="text-sm text-purple-900 font-semibold mt-0.5">{subtitle}</p>}
         </div>
         {action && <div>{action}</div>}
     </div>
@@ -38,14 +38,14 @@ const StatsCard = ({ title, value, subtitle, variant = "purple", icon: Icon }) =
         <Card className="hover:shadow-2xl transition-all duration-300 group">
             <div className="flex items-start justify-between">
                 <div>
-                    <p className="text-xs md:text-sm font-bold text-gray-400 capitalize tracking-widest mb-1 md:mb-2 italic">
+                    <p className="text-xs md:text-sm font-black text-purple-900 uppercase tracking-[0.2em] mb-1 md:mb-2 italic">
                         {title}
                     </p>
-                    <p className="text-2xl md:text-4xl font-black text-gray-900 group-hover:scale-105 transition-transform origin-left">
+                    <p className="text-2xl md:text-4xl font-black text-gray-900 group-hover:scale-105 transition-transform origin-left tracking-tighter">
                         {value}
                     </p>
                     {subtitle && (
-                        <p className={`text-[10px] md:text-xs font-bold mt-1 md:mt-2 ${isPositive ? "text-emerald-500" : isNegative ? "text-rose-500" : "text-gray-400"}`}>
+                        <p className={`text-[10px] md:text-xs font-bold mt-2 md:mt-3 ${isPositive ? "text-emerald-600" : isNegative ? "text-rose-600" : "text-purple-800"}`}>
                             {subtitle}
                         </p>
                     )}
