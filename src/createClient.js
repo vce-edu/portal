@@ -14,3 +14,12 @@ export const secSupabase = createClient(secSupabaseUrl, secSupabaseAnonKey)
 const thirdSupabaseUrl = import.meta.env.VITE_third_SUPABASE_URL
 const thirdSupabaseAnonKey = import.meta.env.VITE_third_SUPABASE_ANON_KEY
 export const thirdSupabase = createClient(thirdSupabaseUrl, thirdSupabaseAnonKey)
+
+// Signup Supabase Client (Non-persisting to prevent logout on signup)
+export const signupSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false
+    }
+})
