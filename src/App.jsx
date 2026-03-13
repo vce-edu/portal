@@ -17,6 +17,7 @@ import Button from "./components/ui/Button";
 import OwnerRoute from "./components/OwnerRoute";
 
 import PendingApplications from "./Pages/PendingApplications";
+import Scholarship from "./Pages/Scholarship";
 
 export default function App() {
   return (
@@ -59,6 +60,7 @@ export default function App() {
             </OwnerRoute>
           }
         />
+        <Route path="/portal/scholarship" element={<Scholarship />} />
         <Route
           path="/portal/pending-applications"
           element={

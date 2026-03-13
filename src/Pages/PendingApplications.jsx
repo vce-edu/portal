@@ -34,6 +34,20 @@ export default function PendingApplications() {
         addmission_date: formatDate(today)
     });
 
+    // Scholarship Migration State
+    const [scholarshipMigrationOpen, setScholarshipMigrationOpen] = useState(false);
+    const [migrationType, setMigrationType] = useState(null); // 'scholarship' or 'main'
+    const [scholarshipFormData, setScholarshipFormData] = useState({
+        roll_number: "",
+        score: "",
+        mother_name: "",
+        course: "General",
+        duration: "",
+        fee_month: "",
+        batch_time: "",
+        admission_date: formatDate(today)
+    });
+
     // Fetch unique branches
     useEffect(() => {
         const fetchBranches = async () => {
@@ -63,12 +77,19 @@ export default function PendingApplications() {
 
     const handleConfirm = async (item) => {
         if (activeTab === "scholarship") {
-            const { error } = await secSupabase
-                .from("scholarship_application")
-                .update({ isConfirmed: true })
-                .eq("application_id", item.application_id);
-            if (error) console.error("Confirm error:", error);
-            else fetchPendingData();
+            setConfirmingItem(item);
+            setScholarshipMigrationOpen(true);
+            setMigrationType(null); // Reset migration type
+            setScholarshipFormData({
+                roll_number: "",
+                score: "",
+                mother_name: "",
+                course: "General",
+                duration: "",
+                fee_month: "",
+                batch_time: "",
+                admission_date: formatDate(today)
+            });
         } else if (activeTab === "student") {
             setConfirmingItem(item);
             setConfirmFormData({
@@ -76,6 +97,67 @@ export default function PendingApplications() {
                 batch_time: item.class_duration || "",
                 addmission_date: formatDate(today)
             });
+        }
+    };
+
+    const executeScholarshipMigration = async () => {
+        console.log("Starting migration for:", confirmingItem?.full_name);
+        if (!confirmingItem || !migrationType) return;
+        if (!scholarshipFormData.roll_number) {
+            alert("Please enter a Roll Number");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const prefix = confirmingItem.branch ? confirmingItem.branch.trim().toLowerCase().charAt(0) + "_" : "";
+            const finalRollNumber = `${prefix}${scholarshipFormData.roll_number}`;
+
+            if (migrationType === "scholarship") {
+                const { error: insertError } = await supabase.from("scholarship_students").insert([{
+                    roll_number: finalRollNumber,
+                    student_name: confirmingItem.full_name,
+                    father_name: confirmingItem.father_name,
+                    gender: confirmingItem.gender,
+                    phone_number: confirmingItem.phone_number,
+                    address: confirmingItem.address,
+                    staff_id: confirmingItem.staff_id,
+                    branch: confirmingItem.branch,
+                    score: scholarshipFormData.score ? parseInt(scholarshipFormData.score) : null
+                }]);
+                if (insertError) throw insertError;
+            } else {
+                const { error: insertError } = await supabase.from("students").insert([{
+                    roll_number: finalRollNumber,
+                    student_name: confirmingItem.full_name,
+                    father_name: confirmingItem.father_name,
+                    phone_number: confirmingItem.phone_number,
+                    branch: confirmingItem.branch,
+                    mother_name: scholarshipFormData.mother_name || "—",
+                    course: scholarshipFormData.course || "General",
+                    duration: scholarshipFormData.duration || null,
+                    fee_month: scholarshipFormData.fee_month ? parseFloat(scholarshipFormData.fee_month) : null,
+                    addmission_date: scholarshipFormData.admission_date,
+                    batch_time: scholarshipFormData.batch_time || null
+                }]);
+                if (insertError) throw insertError;
+            }
+
+            const { error: updateError } = await secSupabase
+                .from("scholarship_application")
+                .update({ isConfirmed: true })
+                .eq("application_id", confirmingItem.application_id);
+            if (updateError) throw updateError;
+
+            setScholarshipMigrationOpen(false);
+            setConfirmingItem(null);
+            fetchPendingData();
+            alert(`Succesfully moved to ${migrationType === 'scholarship' ? 'Scholarship Pool' : 'Main Students'}`);
+        } catch (error) {
+            console.error("Migration error:", error);
+            alert("Error during migration: " + error.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -515,9 +597,133 @@ export default function PendingApplications() {
                 </p>
             </div>
 
+            {/* Scholarship Migration Modal */}
+            <Modal
+                isOpen={activeTab === "scholarship" && scholarshipMigrationOpen}
+                onClose={() => {
+                    setScholarshipMigrationOpen(false);
+                    setConfirmingItem(null);
+                    setMigrationType(null);
+                }}
+                title="Confirm Scholarship Migration"
+                maxWidth="max-w-2xl"
+            >
+                <div className="p-2 space-y-6">
+                    {!migrationType ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <button
+                                onClick={() => setMigrationType('scholarship')}
+                                className="p-6 bg-purple-50 hover:bg-purple-100 rounded-3xl border-2 border-dashed border-purple-200 text-center transition-all group"
+                            >
+                                <span className="text-4xl mb-3 block group-hover:scale-110 transition-transform">🏆</span>
+                                <h3 className="font-black text-purple-900">Scholarship Pool</h3>
+                                <p className="text-[10px] font-bold text-purple-400 uppercase mt-1">Move to scholarship_students table</p>
+                            </button>
+                            <button
+                                onClick={() => setMigrationType('main')}
+                                className="p-6 bg-emerald-50 hover:bg-emerald-100 rounded-3xl border-2 border-dashed border-emerald-200 text-center transition-all group"
+                            >
+                                <span className="text-4xl mb-3 block group-hover:scale-110 transition-transform">👨‍🎓</span>
+                                <h3 className="font-black text-emerald-900">Main Students</h3>
+                                <p className="text-[10px] font-bold text-emerald-400 uppercase mt-1">Move to main students table</p>
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <div className="flex items-center gap-3">
+                                <button onClick={() => setMigrationType(null)} className="p-2 hover:bg-gray-100 rounded-full text-gray-400 transition-colors">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                                </button>
+                                <h3 className="font-black text-gray-900">
+                                    Moving to <span className={migrationType === 'scholarship' ? 'text-purple-600' : 'text-emerald-600'}>
+                                        {migrationType === 'scholarship' ? 'Scholarship Pool' : 'Main Students'}
+                                    </span>
+                                </h3>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <Input
+                                    label="Roll Number"
+                                    value={scholarshipFormData.roll_number}
+                                    onChange={(e) => setScholarshipFormData({ ...scholarshipFormData, roll_number: e.target.value })}
+                                    placeholder="Enter numeric roll"
+                                    required
+                                />
+
+                                {migrationType === 'scholarship' ? (
+                                    <Input
+                                        label="Score (Optional)"
+                                        type="number"
+                                        value={scholarshipFormData.score}
+                                        onChange={(e) => setScholarshipFormData({ ...scholarshipFormData, score: e.target.value })}
+                                        placeholder="Type score here..."
+                                    />
+                                ) : (
+                                    <>
+                                        <Input
+                                            label="Course"
+                                            value={scholarshipFormData.course}
+                                            onChange={(e) => setScholarshipFormData({ ...scholarshipFormData, course: e.target.value })}
+                                            required
+                                        />
+                                        <Input
+                                            label="Mother's Name"
+                                            value={scholarshipFormData.mother_name}
+                                            onChange={(e) => setScholarshipFormData({ ...scholarshipFormData, mother_name: e.target.value })}
+                                        />
+                                        <Input
+                                            label="Duration"
+                                            value={scholarshipFormData.duration}
+                                            onChange={(e) => setScholarshipFormData({ ...scholarshipFormData, duration: e.target.value })}
+                                            placeholder="e.g. 6 Months"
+                                        />
+                                        <Input
+                                            label="Fee Month"
+                                            type="number"
+                                            value={scholarshipFormData.fee_month}
+                                            onChange={(e) => setScholarshipFormData({ ...scholarshipFormData, fee_month: e.target.value })}
+                                        />
+                                        <Input
+                                            label="Batch Time"
+                                            value={scholarshipFormData.batch_time}
+                                            onChange={(e) => setScholarshipFormData({ ...scholarshipFormData, batch_time: e.target.value })}
+                                            placeholder="e.g. 9:00 AM"
+                                        />
+                                        <Input
+                                            label="Admission Date"
+                                            type="date"
+                                            value={scholarshipFormData.admission_date}
+                                            onChange={(e) => setScholarshipFormData({ ...scholarshipFormData, admission_date: e.target.value })}
+                                        />
+                                    </>
+                                )}
+                            </div>
+
+                            <Button
+                                onClick={executeScholarshipMigration}
+                                loading={loading}
+                                className={`w-full py-4 rounded-2xl text-lg font-black tracking-tight shadow-xl ${migrationType === 'scholarship' ? 'bg-purple-600 shadow-purple-100 hover:bg-purple-700' : 'bg-emerald-600 shadow-emerald-100 hover:bg-emerald-700'
+                                    }`}
+                            >
+                                Confirm & Migrate
+                            </Button>
+                        </div>
+                    )}
+
+                    <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-center gap-4">
+                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-lg shadow-sm">🆔</div>
+                        <div>
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Candidate Information</p>
+                            <p className="text-sm font-black text-gray-900">{confirmingItem?.full_name}</p>
+                            <p className="text-[10px] font-bold text-gray-400">{confirmingItem?.branch?.toUpperCase()} • {confirmingItem?.phone_number}</p>
+                        </div>
+                    </div>
+                </div>
+            </Modal>
+
             {/* Confirmation Modal */}
             <Modal
-                isOpen={!!confirmingItem}
+                isOpen={activeTab === "student" && !!confirmingItem}
                 onClose={() => setConfirmingItem(null)}
                 title="Confirm Student Admission"
                 footer={
