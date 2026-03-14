@@ -44,6 +44,7 @@ export default function Fees() {
   // loading flags
   const [loadingSubmit, setLoadingSubmit] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [loadingStudent, setLoadingStudent] = useState(false);
 
   // refs for debounce & latest roll
   const rollLookupTimer = useRef(null);
@@ -148,7 +149,7 @@ export default function Fees() {
     } catch (err) {
       console.error("fetchStudentByRoll:", err);
     } finally {
-      // noop
+      setLoadingStudent(false);
     }
   }, []);
 
