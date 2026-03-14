@@ -186,15 +186,15 @@ export default function Students() {
       return {
         roll_number: `${prefix}${s.rollNumber}`,
         student_name: s.studentName,
-        father_name: s.father_name,
-        mother_name: s.mother_name,
+        father_name: s.fatherName,
+        mother_name: s.motherName,
         course: s.course,
         duration: s.duration || null,
-        fee_month: s.fee_month ? parseFloat(s.fee_month) : null,
-        phone_number: s.phone_number,
+        fee_month: s.feeMonth ? parseFloat(s.feeMonth) : null,
+        phone_number: s.phoneNumber,
         addmission_date: s.admissionDate,
         branch: s.branch,
-        batch_time: s.batch_time,
+        batch_time: s.batchTime,
       };
     });
 
