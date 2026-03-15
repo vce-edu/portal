@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "../createClient";
 import { useAuth } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
 import { Input, Select } from "../components/ui/Input";
@@ -27,6 +28,7 @@ export default function Status() {
   });
 
   const { branch } = useAuth();
+  const navigate = useNavigate();
   const [selectedBranch, setSelectedBranch] = useState(branch === "all" ? "main" : branch);
   const [search, setSearch] = useState("");
   useEffect(() => {
@@ -250,26 +252,41 @@ export default function Status() {
                     </Badge>
                   </TD>
                   <TD>
-                    {!r.status.toLowerCase().includes("up") && (
+                    <div className="flex items-center gap-2">
+                      {!r.status.toLowerCase().includes("up") && (
+                        <Button
+                          size="sm"
+                          variant="success"
+                          className="bg-green-50 text-green-700 hover:bg-green-100 border-none shadow-none"
+                          onClick={async () => {
+                            const s = await fetchStudentByRoll(r.roll_number);
+                            setForm({
+                              roll: r.roll_number,
+                              student: s?.student_name || r.student_name,
+                              father: s?.father_name || r.father_name || "",
+                              amount: s?.fee_month || "",
+                              receipt: "",
+                              paidOn: today,
+                            });
+                            setOpen(true);
+                          }}
+                        >
+                          Pay
+                        </Button>
+                      )}
                       <Button
-                        size="xs"
-                        variant="primary"
-                        onClick={async () => {
-                          const s = await fetchStudentByRoll(r.roll_number);
-                          setForm({
-                            roll: r.roll_number,
-                            student: s?.student_name || r.student_name,
-                            father: s?.father_name || r.father_name || "",
-                            amount: s?.fee_month || "",
-                            receipt: "",
-                            paidOn: today,
-                          });
-                          setOpen(true);
-                        }}
+                        size="sm"
+                        variant="secondary"
+                        className="bg-purple-50 text-purple-700 hover:bg-purple-100 border-none shadow-none"
+                        onClick={() =>
+                          navigate("/portal/fees", {
+                            state: { roll: r.roll_number, fromStatus: true },
+                          })
+                        }
                       >
-                        Pay
+                        Fees
                       </Button>
-                    )}
+                    </div>
                   </TD>
                 </TR>
               ))}

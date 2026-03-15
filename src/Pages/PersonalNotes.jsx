@@ -143,14 +143,15 @@ function PersonalNotes() {
               <h3 className="text-xl font-bold text-gray-900 group-hover:text-purple-700 transition-colors">{note.title}</h3>
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <Button
-                  size="xs"
+                  size="sm"
                   variant="secondary"
+                  className="bg-yellow-50 text-yellow-600 hover:bg-yellow-100"
                   onClick={() => setEditNote(note)}
                 >
                   Edit
                 </Button>
                 <Button
-                  size="xs"
+                  size="sm"
                   variant="danger"
                   onClick={() => deleteNote(note.id)}
                 >

@@ -523,7 +523,7 @@ export default function Students() {
                     <div className="flex flex-wrap gap-1.5">
                       <Button size="sm" variant="secondary" className="bg-blue-50 text-blue-600 hover:bg-blue-100" onClick={() => openViewModal(s)}>View</Button>
                       <Button size="sm" variant="secondary" className="bg-yellow-50 text-yellow-600 hover:bg-yellow-100" onClick={() => openUpdateModal(s)}>Edit</Button>
-                      <Button size="sm" variant="success" onClick={() => navigate("/fees", { state: { roll: s.roll_number } })}>Fees</Button>
+                      <Button size="sm" variant="success" onClick={() => navigate("/portal/fees", { state: { roll: s.roll_number, fromStudents: true } })}>Fees</Button>
                       <Button size="sm" variant="danger" onClick={() => handleDelete(s.roll_number)}>Del</Button>
                     </div>
                   </TD>

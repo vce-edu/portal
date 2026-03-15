@@ -332,30 +332,28 @@ export default function Branches() {
                         <div key={u.id} className="flex items-center gap-4 p-4 bg-emerald-50/30 rounded-3xl border border-emerald-50 group/item hover:bg-emerald-50 transition-all duration-300">
                           <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-lg shadow-emerald-200"></div>
                           <p className="text-base font-black text-gray-800 truncate flex-1">{u.display_name || u.email}</p>
-                          <button
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="opacity-0 group-hover/item:opacity-100 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all border-none shadow-none"
                             onClick={() => {
                               setSelectedUser(u);
                               setTransferOpen(true);
                             }}
-                            className="opacity-0 group-hover/item:opacity-100 p-1.5 hover:bg-emerald-100 rounded-lg text-emerald-600 transition-all hover:scale-110"
-                            title="Transfer Branch"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                            </svg>
-                          </button>
-                          <button
+                            Transfer
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            className="opacity-0 group-hover/item:opacity-100 transition-all border-none font-bold"
                             onClick={() => {
                               setUserToDelete(u);
                               setDeleteOpen(true);
                             }}
-                            className="opacity-0 group-hover/item:opacity-100 p-1.5 hover:bg-red-100 rounded-lg text-red-600 transition-all hover:scale-110"
-                            title="Delete User"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
+                            Delete
+                          </Button>
                         </div>
                       ))}
                     </div>
@@ -376,30 +374,28 @@ export default function Branches() {
                         <div key={u.id} className="flex items-center gap-3 p-3 bg-blue-50/30 rounded-2xl border border-blue-50/50 group/item hover:bg-blue-50 transition-colors">
                           <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                           <p className="text-sm font-bold text-gray-700 truncate flex-1">{u.display_name || u.email}</p>
-                          <button
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="opacity-0 group-hover/item:opacity-100 bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all border-none shadow-none"
                             onClick={() => {
                               setSelectedUser(u);
                               setTransferOpen(true);
                             }}
-                            className="opacity-0 group-hover/item:opacity-100 p-1.5 hover:bg-blue-100 rounded-lg text-blue-600 transition-all hover:scale-110"
-                            title="Transfer Branch"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                            </svg>
-                          </button>
-                          <button
+                            Transfer
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            className="opacity-0 group-hover/item:opacity-100 transition-all border-none font-bold"
                             onClick={() => {
                               setUserToDelete(u);
                               setDeleteOpen(true);
                             }}
-                            className="opacity-0 group-hover/item:opacity-100 p-1.5 hover:bg-red-100 rounded-lg text-red-600 transition-all hover:scale-110"
-                            title="Delete User"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
+                            Delete
+                          </Button>
                         </div>
                       ))}
                     </div>
@@ -419,30 +415,28 @@ export default function Branches() {
                       {groupedData[branchName].staff.map((u) => (
                         <div key={u.id} className="flex items-center gap-3 p-3 bg-gray-50/50 rounded-2xl border border-transparent hover:border-purple-100 hover:bg-white transition-all group/item">
                           <p className="text-xs font-bold text-gray-500 truncate flex-1 italic">{u.display_name || u.email}</p>
-                          <button
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="opacity-0 group-hover/item:opacity-100 bg-purple-50 text-purple-600 hover:bg-purple-100 transition-all border-none shadow-none"
                             onClick={() => {
                               setSelectedUser(u);
                               setTransferOpen(true);
                             }}
-                            className="opacity-0 group-hover/item:opacity-100 p-1.5 hover:bg-purple-100 rounded-lg text-purple-600 transition-all hover:scale-110"
-                            title="Transfer Branch"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                            </svg>
-                          </button>
-                          <button
+                            Transfer
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            className="opacity-0 group-hover/item:opacity-100 transition-all border-none font-bold"
                             onClick={() => {
                               setUserToDelete(u);
                               setDeleteOpen(true);
                             }}
-                            className="opacity-0 group-hover/item:opacity-100 p-1.5 hover:bg-red-100 rounded-lg text-red-600 transition-all hover:scale-110"
-                            title="Delete User"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
+                            Delete
+                          </Button>
                           <svg className="w-4 h-4 text-purple-200 group-hover/item:hidden" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
                             <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "../createClient";
 import TransactionTable from "../components/TransactionTable";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
 import { Input } from "../components/ui/Input";
@@ -13,7 +13,10 @@ const HISTORY_PAGE_LIMIT = 20;
 
 export default function Fees() {
   const location = useLocation();
+  const navigate = useNavigate();
   const passedRoll = location.state?.roll;
+  const fromStatus = location.state?.fromStatus ?? false;
+  const fromStudents = location.state?.fromStudents ?? false;
   useEffect(() => {
     if (passedRoll) {
       setSelectedRoll(passedRoll);
@@ -452,7 +455,29 @@ export default function Fees() {
           )}
 
           <div className="flex gap-3 pt-6 border-t border-gray-100">
-            <Button variant="secondary" className="flex-1" onClick={backToHistoryPrompt}>← Back</Button>
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={() => {
+                if (fromStatus) {
+                  // came from Status page — go back there
+                  setFeesHistory([]);
+                  setSelectedRoll("");
+                  setHistoryOpen(false);
+                  navigate("/portal/status");
+                } else if (fromStudents) {
+                  // came from Students page — go back there
+                  setFeesHistory([]);
+                  setSelectedRoll("");
+                  setHistoryOpen(false);
+                  navigate("/portal/students");
+                } else {
+                  backToHistoryPrompt();
+                }
+              }}
+            >
+              ← Back
+            </Button>
             <Button variant="success" className="flex-1" onClick={openPayForSelectedRoll}>Pay New Fees</Button>
           </div>
         </div>

@@ -498,7 +498,7 @@ export default function UploadDiploma() {
                                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Checking fees for</p>
                                 <p className="text-sm font-black text-gray-900">{student?.student_name} · {student?.roll_number}</p>
                             </div>
-                            <Button variant="ghost" size="xs" onClick={handleFeeCancel}>← Back</Button>
+                            <Button variant="ghost" size="sm" className="text-gray-500 hover:text-gray-700 bg-gray-50 hover:bg-gray-100" onClick={handleFeeCancel}>← Back</Button>
                         </div>
 
                         {feeLoading && (

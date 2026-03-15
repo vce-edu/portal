@@ -274,10 +274,10 @@ export default function Events() {
                                     </TD>
                                     <TD className="text-right">
                                         <div className="flex justify-end gap-2">
-                                            <Button size="xs" variant="outline" onClick={() => handleOpenModal(event)}>
+                                            <Button size="sm" variant="secondary" className="bg-yellow-50 text-yellow-600 hover:bg-yellow-100" onClick={() => handleOpenModal(event)}>
                                                 Edit
                                             </Button>
-                                            <Button size="xs" variant="danger" onClick={() => handleDelete(event.event_id)}>
+                                            <Button size="sm" variant="danger" onClick={() => handleDelete(event.event_id)}>
                                                 Delete
                                             </Button>
                                         </div>
@@ -344,7 +344,7 @@ export default function Events() {
                     <div className="space-y-4 pt-4 border-t border-gray-100">
                         <div className="flex items-center justify-between">
                             <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Action Buttons</h3>
-                            <Button size="xs" variant="secondary" onClick={handleAddButton}>
+                            <Button size="sm" variant="secondary" className="bg-purple-50 text-purple-600 hover:bg-purple-100" onClick={handleAddButton}>
                                 + Add Button
                             </Button>
                         </div>

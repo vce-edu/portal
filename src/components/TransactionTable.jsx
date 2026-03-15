@@ -198,11 +198,32 @@ export default function TransactionTable() {
                     <TD className="text-gray-500 hidden md:table-cell">{t.paid_on}</TD>
                     <TD>
                       <div className="flex gap-2">
-                        <Button size="xs" variant="secondary" onClick={() => setSelectedTransaction(t)}>View</Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="bg-blue-50 text-blue-600 hover:bg-blue-100 border-none shadow-none font-bold"
+                          onClick={() => setSelectedTransaction(t)}
+                        >
+                          View
+                        </Button>
                         {role === "owner" && (
-                          <Button size="xs" variant="outline" onClick={() => handleEdit(t)}>Edit</Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="bg-yellow-50 text-yellow-600 hover:bg-yellow-100 border-none shadow-none font-bold"
+                            onClick={() => handleEdit(t)}
+                          >
+                            Edit
+                          </Button>
                         )}
-                        <Button size="xs" variant="danger" onClick={() => handleDelete(t.id)}>Del</Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          className="border-none font-bold"
+                          onClick={() => handleDelete(t.id)}
+                        >
+                          Delete
+                        </Button>
                       </div>
                     </TD>
                   </TR>
