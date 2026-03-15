@@ -521,10 +521,10 @@ export default function Students() {
                   <TD className="text-gray-500 hidden lg:table-cell px-6">{s.batch_time || "-"}</TD>
                   <TD className="px-6">
                     <div className="flex flex-wrap gap-1.5">
-                      <Button size="xs" variant="secondary" onClick={() => openViewModal(s)}>View</Button>
-                      <Button size="xs" variant="outline" onClick={() => openUpdateModal(s)}>Edit</Button>
-                      <Button size="xs" variant="ghost" onClick={() => navigate("/fees", { state: { roll: s.roll_number } })}>Fees</Button>
-                      <Button size="xs" variant="danger" onClick={() => handleDelete(s.roll_number)}>Del</Button>
+                      <Button size="sm" variant="secondary" className="bg-blue-50 text-blue-600 hover:bg-blue-100" onClick={() => openViewModal(s)}>View</Button>
+                      <Button size="sm" variant="secondary" className="bg-yellow-50 text-yellow-600 hover:bg-yellow-100" onClick={() => openUpdateModal(s)}>Edit</Button>
+                      <Button size="sm" variant="success" onClick={() => navigate("/fees", { state: { roll: s.roll_number } })}>Fees</Button>
+                      <Button size="sm" variant="danger" onClick={() => handleDelete(s.roll_number)}>Del</Button>
                     </div>
                   </TD>
                 </TR>
