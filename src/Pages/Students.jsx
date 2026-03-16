@@ -80,63 +80,56 @@ export default function Students() {
   }, [open, editStudent, viewStudent]);
 
   // Fetch Students
-  const fetchStudents = useCallback(async (reset = false) => {
-    if (loading) return;
+  const fetchStudents = useCallback(async (branchToUse, pageToLoad = 0, searchTerm = "", reset = false) => {
     setLoading(true);
 
-    const from = reset ? 0 : page * pageSize;
-    const to = from + pageSize - 1;
+    try {
+      const from = pageToLoad * pageSize;
+      const to = from + pageSize - 1;
 
-    let query = supabase
-      .from("students")
-      .select("*", { count: "exact" })
-      .range(from, to) // <-- KEY PART
-      .order("roll_number", { ascending: false });
+      let query = supabase
+        .from("students")
+        .select("*", { count: "exact" })
+        .range(from, to)
+        .order("roll_number", { ascending: false });
 
-    const activeBranch = branch?.toLowerCase() === "all"
-      ? selectedBranch
-      : branch;
-    if (activeBranch && activeBranch !== "all") {
-      query = query.eq("branch", activeBranch.toLowerCase());
-    }
+      if (branchToUse && branchToUse !== "all") {
+        query = query.eq("branch", branchToUse.toLowerCase());
+      }
 
-    if (search.trim()) {
-      query = query.or(`roll_number.ilike.%${search}%,student_name.ilike.%${search}%`);
-    }
+      if (searchTerm.trim()) {
+        query = query.or(`roll_number.ilike.%${searchTerm}%,student_name.ilike.%${searchTerm}%`);
+      }
 
-    const { data, count, error } = await query;
+      const { data, count, error } = await query;
 
-    if (error) {
-      console.error("Fetch error:", error);
+      if (error) {
+        console.error("Fetch error:", error);
+        return;
+      }
+
+      if (reset) {
+        setStudentList(data);
+        setTotalCount(count || 0);
+        setPage(1);
+        setHasMore(data.length === pageSize);
+      } else {
+        setStudentList((prev) => [...prev, ...data]);
+        setPage(pageToLoad + 1);
+        setHasMore(data.length === pageSize);
+      }
+    } finally {
       setLoading(false);
-      return;
     }
-
-    if (reset) {
-      setStudentList(data);
-      setTotalCount(count || 0);
-      setPage(1);
-    } else {
-      setStudentList((prev) => [...prev, ...data]);
-      setPage((p) => p + 1);
-    }
-
-    if (data.length < pageSize) {
-      setHasMore(false);
-    }
-
-    setLoading(false);
-  }, [loading, page, pageSize, branch, selectedBranch, search]);
+  }, [pageSize]);
 
 
   useEffect(() => {
-    let active = true;
-    if (active && branch !== null && branch !== undefined) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      fetchStudents(true);
+    if (branch !== null && branch !== undefined) {
+      const activeBranch = branch?.toLowerCase() === "all" ? selectedBranch : branch;
+      fetchStudents(activeBranch, 0, search, true);
     }
-    return () => { active = false; };
-  }, [branch, fetchStudents]);
+  }, [branch, selectedBranch, fetchStudents]);
 
 
   // Add Form Row
@@ -296,10 +289,12 @@ export default function Students() {
 
   useEffect(() => {
     const delay = setTimeout(() => {
-      fetchStudents(true);
+      const activeBranch = branch?.toLowerCase() === "all" ? selectedBranch : branch;
+      fetchStudents(activeBranch, 0, search, true);
     }, 300);
     return () => clearTimeout(delay);
-  }, [search, fetchStudents]);
+  }, [search, fetchStudents, branch, selectedBranch]);
+
   const fetchAllBranches = useCallback(async () => {
     const { data, error } = await supabase
       .from("students")
@@ -322,12 +317,8 @@ export default function Students() {
     }
   }, [branch, fetchAllBranches]);
 
-  useEffect(() => {
-    if (branch?.toLowerCase() === "all" && selectedBranch) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      fetchStudents(true); // fetchStudents(true) already calls setPage(0)
-    }
-  }, [selectedBranch, branch, fetchStudents]);
+  // Pagination effect removed as it's now handled by the branch/fetch effect above.
+
 
   return (
     <div className="p-2 sm:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6">
@@ -349,17 +340,26 @@ export default function Students() {
           </Button>
 
           <div className="w-full sm:w-80 order-1 sm:order-2">
-            <Input
-              placeholder="Search by name or roll..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              icon={() => (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              )}
-            />
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const activeBranch = branch?.toLowerCase() === "all" ? selectedBranch : branch;
+                fetchStudents(activeBranch, 0, search, true);
+              }}
+            >
+              <Input
+                placeholder="Search by name or roll..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                icon={() => (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                )}
+              />
+            </form>
           </div>
+
         </div>
       </div>
 
@@ -607,7 +607,14 @@ export default function Students() {
 
       {hasMore && (
         <div className="p-8 text-center">
-          <Button variant="secondary" onClick={() => fetchStudents(false)} loading={loading}>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              const activeBranch = branch?.toLowerCase() === "all" ? selectedBranch : branch;
+              fetchStudents(activeBranch, page, search, false);
+            }}
+            loading={loading}
+          >
             {loading ? "Loading..." : "Load More Students"}
           </Button>
         </div>
