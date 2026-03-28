@@ -32,7 +32,7 @@ export default function Students() {
       feeMonth: "",
       phoneNumber: "",
       admissionDate: "",
-      branch: branch?.toLowerCase() === "all" ? "" : branch,
+      branch: branch?.toLowerCase() === "all" ? "main" : branch,
       batchTime: "",
     },
   ]);
@@ -64,6 +64,16 @@ export default function Students() {
     batch_time: "",
   });
   const [originalRoll, setOriginalRoll] = useState(null);
+  const [showBreakStudents, setShowBreakStudents] = useState(false);
+
+  // BREAK MODAL
+  const [breakModalOpen, setBreakModalOpen] = useState(false);
+  const [studentForBreak, setStudentForBreak] = useState(null);
+  const [breakDates, setBreakDates] = useState({ from: null, to: null });
+  const [selectedStudents, setSelectedStudents] = useState([]);
+  const [duplicateErrors, setDuplicateErrors] = useState({}); // { index: errorMessage }
+  const timeoutRef = React.useRef({});
+
 
 
   useEffect(() => {
@@ -72,12 +82,13 @@ export default function Students() {
         if (open) setOpen(false);
         if (editStudent) setEditStudent(null);
         if (viewStudent) setViewStudent(null);
+        if (breakModalOpen) setBreakModalOpen(false);
       }
     };
 
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
-  }, [open, editStudent, viewStudent]);
+  }, [open, editStudent, viewStudent, breakModalOpen]);
 
   // Fetch Students
   const fetchStudents = useCallback(async (branchToUse, pageToLoad = 0, searchTerm = "", reset = false) => {
@@ -87,8 +98,10 @@ export default function Students() {
       const from = pageToLoad * pageSize;
       const to = from + pageSize - 1;
 
+      const tableName = showBreakStudents ? "break_students" : "students";
+
       let query = supabase
-        .from("students")
+        .from(tableName)
         .select("*", { count: "exact" })
         .range(from, to)
         .order("roll_number", { ascending: false });
@@ -98,7 +111,7 @@ export default function Students() {
       }
 
       if (searchTerm.trim()) {
-        query = query.or(`roll_number.ilike.%${searchTerm}%,student_name.ilike.%${searchTerm}%`);
+        query = query.or(`roll_number.ilike.%${searchTerm}%,student_name.ilike.%${searchTerm}%,father_name.ilike.%${searchTerm}%`);
       }
 
       const { data, count, error } = await query;
@@ -121,15 +134,17 @@ export default function Students() {
     } finally {
       setLoading(false);
     }
-  }, [pageSize]);
+  }, [pageSize, showBreakStudents]);
 
-
+  // RESET SELECTION ON FILTER CHANGE
   useEffect(() => {
-    if (branch !== null && branch !== undefined) {
-      const activeBranch = branch?.toLowerCase() === "all" ? selectedBranch : branch;
-      fetchStudents(activeBranch, 0, search, true);
-    }
-  }, [branch, selectedBranch, fetchStudents]);
+    setSelectedStudents([]);
+  }, [showBreakStudents, search, selectedBranch]);
+
+
+
+  // REMOVED redundant immediate useEffect which triggered double fetches with search debounce.
+  // branch, selectedBranch, fetchStudents and showBreakStudents are now handled by search debounce.
 
 
   // Add Form Row
@@ -146,7 +161,7 @@ export default function Students() {
         feeMonth: "",
         phoneNumber: "",
         admissionDate: "",
-        branch: branch?.toLowerCase() === "all" ? "" : branch,
+        branch: branch?.toLowerCase() === "all" ? "main" : branch,
         batchTime: "",
       },
     ]);
@@ -156,6 +171,20 @@ export default function Students() {
     if (students.length === 1) return;
 
     setStudents(students.filter((_, i) => i !== index));
+
+    // Shift/Remove duplicate errors
+    setDuplicateErrors((prev) => {
+      const next = {};
+      Object.keys(prev).forEach((key) => {
+        const k = parseInt(key);
+        if (k < index) {
+          next[k] = prev[k];
+        } else if (k > index) {
+          next[k - 1] = prev[k];
+        }
+      });
+      return next;
+    });
   };
 
 
@@ -164,11 +193,94 @@ export default function Students() {
     const newStudents = [...students];
     newStudents[index][field] = value;
     setStudents(newStudents);
+
+    if (field === "rollNumber" || field === "branch") {
+      const rollNo = field === "rollNumber" ? value : newStudents[index].rollNumber;
+      const branchVal = field === "branch" ? value : newStudents[index].branch;
+      
+      // Clear existing timeout for this row
+      if (timeoutRef.current[index]) {
+        clearTimeout(timeoutRef.current[index]);
+      }
+
+      timeoutRef.current[index] = setTimeout(() => {
+        checkRollNumberDuplicate(index, rollNo, branchVal, newStudents);
+      }, 500);
+    }
+  };
+
+  const checkRollNumberDuplicate = async (index, rollNo, branchVal, currentStudents) => {
+    if (!rollNo || !branchVal) {
+      setDuplicateErrors(prev => {
+        const next = { ...prev };
+        delete next[index];
+        return next;
+      });
+      return;
+    }
+
+    const prefix = branchVal.trim() !== ""
+      ? branchVal.trim().toLowerCase().charAt(0) + "_"
+      : "";
+    const fullRoll = `${prefix}${rollNo}`;
+
+    // 1. Check for duplicates within the current form
+    const isDuplicateInForm = currentStudents.some((s, i) => {
+      if (i === index) return false;
+      const p = s.branch && s.branch.trim() !== "" ? s.branch.trim().toLowerCase().charAt(0) + "_" : "";
+      return `${p}${s.rollNumber}` === fullRoll;
+    });
+
+    if (isDuplicateInForm) {
+      setDuplicateErrors(prev => ({ ...prev, [index]: "Duplicate in form" }));
+      return;
+    }
+
+    // 2. Check in database
+    try {
+      // Check students table
+      const { data: activeData } = await supabase
+        .from("students")
+        .select("roll_number")
+        .eq("roll_number", fullRoll)
+        .maybeSingle();
+
+      if (activeData) {
+        setDuplicateErrors(prev => ({ ...prev, [index]: "Already exists in database" }));
+        return;
+      }
+
+      // Check break_students table
+      const { data: breakData } = await supabase
+        .from("break_students")
+        .select("roll_number")
+        .eq("roll_number", fullRoll)
+        .maybeSingle();
+
+      if (breakData) {
+        setDuplicateErrors(prev => ({ ...prev, [index]: "Exists in break list" }));
+        return;
+      }
+
+      // If no duplicates found, clear error for this index
+      setDuplicateErrors(prev => {
+        const next = { ...prev };
+        delete next[index];
+        return next;
+      });
+    } catch (err) {
+      console.error("Duplicate check error:", err);
+    }
   };
 
   // Submit Form
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (Object.keys(duplicateErrors).length > 0) {
+      alert("Please fix duplicate roll numbers before submitting.");
+      return;
+    }
 
     const formattedData = students.map((s) => {
       const prefix =
@@ -213,7 +325,7 @@ export default function Students() {
         feeMonth: "",
         phoneNumber: "",
         admissionDate: "",
-        branch: branch?.toLowerCase() === "all" ? "" : branch,
+        branch: branch?.toLowerCase() === "all" ? "main" : branch,
         batchTime: "",
       },
     ]);
@@ -225,8 +337,10 @@ export default function Students() {
   const handleDelete = async (roll) => {
     if (!confirm(`Delete student ${roll}?`)) return;
 
+    const tableName = showBreakStudents ? "break_students" : "students";
+
     const { error } = await supabase
-      .from("students")
+      .from(tableName)
       .delete()
       .eq("roll_number", roll);
 
@@ -236,12 +350,150 @@ export default function Students() {
     }
 
     alert("Student deleted!");
-    fetchStudents();
+    const activeBranch = branch?.toLowerCase() === "all" ? selectedBranch : branch;
+    fetchStudents(activeBranch, 0, search, true);
+  };
+
+  const handleBreak = (student) => {
+    setStudentForBreak(student);
+    setBreakDates({ from: null, to: null });
+    setBreakModalOpen(true);
+  };
+
+  const confirmBreak = async () => {
+    if (!studentForBreak) return;
+
+    try {
+      setLoading(true);
+      const fromDate = breakDates.from ? breakDates.from.toISOString().split("T")[0] : new Date().toISOString().split("T")[0];
+      const toDate = breakDates.to ? breakDates.to.toISOString().split("T")[0] : null;
+
+      // Insert into break_students
+      const { error: insertError } = await supabase
+        .from("break_students")
+        .insert([{
+          roll_number: studentForBreak.roll_number,
+          student_name: studentForBreak.student_name || "",
+          father_name: studentForBreak.father_name || "",
+          course: studentForBreak.course || "",
+          duration: studentForBreak.duration || null,
+          fee_month: studentForBreak.fee_month ? parseFloat(studentForBreak.fee_month) : null,
+          branch: studentForBreak.branch || "",
+          phone_number: studentForBreak.phone_number || "",
+          addmission_date: studentForBreak.addmission_date || "",
+          mother_name: studentForBreak.mother_name || "",
+          batch_time: studentForBreak.batch_time || "",
+          from: fromDate,
+          to: toDate
+        }]);
+
+      if (insertError) {
+        alert("Insert into break list failed: " + insertError.message);
+        return;
+      }
+
+      // Delete from students
+      const { error: deleteError } = await supabase
+        .from("students")
+        .delete()
+        .eq("roll_number", studentForBreak.roll_number);
+
+      if (deleteError) {
+        alert("Deletion from active list failed: " + deleteError.message);
+        return;
+      }
+
+      alert("Student moved to break list!");
+      setBreakModalOpen(false);
+      setStudentForBreak(null);
+      const activeBranch = branch?.toLowerCase() === "all" ? selectedBranch : branch;
+      fetchStudents(activeBranch, 0, search, true);
+    } catch (err) {
+      console.error(err);
+      alert("An error occurred: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRestore = async (student) => {
+    if (!confirm(`Restore student ${student.student_name} (${student.roll_number}) to active list?`)) return;
+
+    try {
+      setLoading(true);
+      // Insert into students
+      const { error: insertError } = await supabase
+        .from("students")
+        .insert([{
+          roll_number: student.roll_number,
+          student_name: student.student_name || "",
+          father_name: student.father_name || "",
+          course: student.course || "",
+          duration: student.duration || null,
+          fee_month: student.fee_month ? parseFloat(student.fee_month) : null,
+          branch: student.branch || "",
+          phone_number: student.phone_number || "",
+          addmission_date: student.addmission_date || "",
+          mother_name: student.mother_name || "",
+          batch_time: student.batch_time || ""
+        }]);
+
+      if (insertError) {
+        alert("Restore to active list failed: " + insertError.message);
+        return;
+      }
+
+      // Delete from break_students
+      const { error: deleteError } = await supabase
+        .from("break_students")
+        .delete()
+        .eq("roll_number", student.roll_number);
+
+      if (deleteError) {
+        alert("Deletion from break list failed: " + deleteError.message);
+        return;
+      }
+
+      alert("Student restored to active list!");
+      const activeBranch = branch?.toLowerCase() === "all" ? selectedBranch : branch;
+      fetchStudents(activeBranch, 0, search, true);
+    } catch (err) {
+      console.error(err);
+      alert("An error occurred: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBreakOver = async (student) => {
+    if (!confirm(`Mark break as over for ${student.student_name} (${student.roll_number})?`)) return;
+
+    try {
+      setLoading(true);
+      const { error } = await supabase.rpc("restore_break_student", {
+        p_roll_number: student.roll_number
+      });
+
+      if (error) {
+        alert("Break Over failed: " + error.message);
+        return;
+      }
+
+      alert("Student restored via Break Over!");
+      const activeBranch = branch?.toLowerCase() === "all" ? selectedBranch : branch;
+      fetchStudents(activeBranch, 0, search, true);
+    } catch (err) {
+      console.error(err);
+      alert("An error occurred: " + err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleUpdate = async () => {
+    const tableName = showBreakStudents ? "break_students" : "students";
     const { error } = await supabase
-      .from("students")
+      .from(tableName)
       .update({
         ...editForm,
         addmission_date: editForm.addmission_date,
@@ -257,8 +509,160 @@ export default function Students() {
     console.log("ORIGINAL:", originalRoll);
     console.log("EDIT FORM:", editForm);
     setEditStudent(null);
-    fetchStudents();
+    const activeBranch = branch?.toLowerCase() === "all" ? selectedBranch : branch;
+    fetchStudents(activeBranch, 0, search, true);
   };
+
+  // BULK ACTIONS
+  const handleBulkDelete = async () => {
+    if (!confirm(`Delete ${selectedStudents.length} selected students?`)) return;
+
+    const tableName = showBreakStudents ? "break_students" : "students";
+    const { error } = await supabase
+      .from(tableName)
+      .delete()
+      .in("roll_number", selectedStudents);
+
+    if (error) {
+      alert("Bulk delete failed: " + error.message);
+      return;
+    }
+
+    alert("Selected students deleted!");
+    setSelectedStudents([]);
+    const activeBranch = branch?.toLowerCase() === "all" ? selectedBranch : branch;
+    fetchStudents(activeBranch, 0, search, true);
+  };
+
+  const handleBulkBreak = async () => {
+    if (!confirm(`Move ${selectedStudents.length} students to break list?`)) return;
+
+    try {
+      setLoading(true);
+      const { data: selectedData, error: fetchError } = await supabase
+        .from("students")
+        .select("*")
+        .in("roll_number", selectedStudents);
+
+      if (fetchError) throw fetchError;
+
+      const fromDate = new Date().toISOString().split("T")[0];
+      const breakData = selectedData.map(student => ({
+        roll_number: student.roll_number,
+        student_name: student.student_name || "",
+        father_name: student.father_name || "",
+        course: student.course || "",
+        duration: student.duration || null,
+        fee_month: student.fee_month ? parseFloat(student.fee_month) : null,
+        branch: student.branch || "",
+        phone_number: student.phone_number || "",
+        addmission_date: student.addmission_date || "",
+        mother_name: student.mother_name || "",
+        batch_time: student.batch_time || "",
+        from: fromDate,
+        to: null
+      }));
+
+      const { error: insertError } = await supabase
+        .from("break_students")
+        .insert(breakData);
+
+      if (insertError) throw insertError;
+
+      const { error: deleteError } = await supabase
+        .from("students")
+        .delete()
+        .in("roll_number", selectedStudents);
+
+      if (deleteError) throw deleteError;
+
+      alert("Students moved to break list!");
+      setSelectedStudents([]);
+      const activeBranch = branch?.toLowerCase() === "all" ? selectedBranch : branch;
+      fetchStudents(activeBranch, 0, search, true);
+    } catch (err) {
+      console.error(err);
+      alert("Bulk break failed: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBulkRestore = async () => {
+    if (!confirm(`Restore ${selectedStudents.length} students to active list?`)) return;
+
+    try {
+      setLoading(true);
+      const { data: selectedData, error: fetchError } = await supabase
+        .from("break_students")
+        .select("*")
+        .in("roll_number", selectedStudents);
+
+      if (fetchError) throw fetchError;
+
+      const restoreData = selectedData.map(student => ({
+        roll_number: student.roll_number,
+        student_name: student.student_name || "",
+        father_name: student.father_name || "",
+        course: student.course || "",
+        duration: student.duration || null,
+        fee_month: student.fee_month ? parseFloat(student.fee_month) : null,
+        branch: student.branch || "",
+        phone_number: student.phone_number || "",
+        addmission_date: student.addmission_date || "",
+        mother_name: student.mother_name || "",
+        batch_time: student.batch_time || ""
+      }));
+
+      const { error: insertError } = await supabase
+        .from("students")
+        .insert(restoreData);
+
+      if (insertError) throw insertError;
+
+      const { error: deleteError } = await supabase
+        .from("break_students")
+        .delete()
+        .in("roll_number", selectedStudents);
+
+      if (deleteError) throw deleteError;
+
+      alert("Students restored to active list!");
+      setSelectedStudents([]);
+      const activeBranch = branch?.toLowerCase() === "all" ? selectedBranch : branch;
+      fetchStudents(activeBranch, 0, search, true);
+    } catch (err) {
+      console.error(err);
+      alert("Bulk restore failed: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBulkBreakOver = async () => {
+    if (!confirm(`Mark break as over for ${selectedStudents.length} students?`)) return;
+
+    try {
+      setLoading(true);
+      for (const roll of selectedStudents) {
+        const { error } = await supabase.rpc("restore_break_student", {
+          p_roll_number: roll
+        });
+        if (error) throw error;
+      }
+
+      alert("Selected students restored via Break Over!");
+      setSelectedStudents([]);
+      const activeBranch = branch?.toLowerCase() === "all" ? selectedBranch : branch;
+      fetchStudents(activeBranch, 0, search, true);
+    } catch (err) {
+      console.error(err);
+      alert("Bulk Break Over failed: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   const openViewModal = (student) => {
     setViewStudent(student);
@@ -293,11 +697,12 @@ export default function Students() {
       fetchStudents(activeBranch, 0, search, true);
     }, 300);
     return () => clearTimeout(delay);
-  }, [search, fetchStudents, branch, selectedBranch]);
+  }, [search, fetchStudents, branch, selectedBranch, showBreakStudents]);
 
   const fetchAllBranches = useCallback(async () => {
+    const tableName = showBreakStudents ? "break_students" : "students";
     const { data, error } = await supabase
-      .from("students")
+      .from(tableName)
       .select("branch", { distinct: true });
 
 
@@ -308,14 +713,13 @@ export default function Students() {
 
     const uniqueBranches = [...new Set(data.map(b => b.branch))];
     setAllBranches(uniqueBranches);
-  }, []);
+  }, [showBreakStudents]);
 
   useEffect(() => {
     if (branch?.toLowerCase() === "all") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchAllBranches();
     }
-  }, [branch, fetchAllBranches]);
+  }, [branch, fetchAllBranches, showBreakStudents]);
 
   // Pagination effect removed as it's now handled by the branch/fetch effect above.
 
@@ -348,7 +752,7 @@ export default function Students() {
               }}
             >
               <Input
-                placeholder="Search by name or roll..."
+                placeholder={showBreakStudents ? "Search in break list..." : "Search by name or roll..."}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 icon={() => (
@@ -365,22 +769,37 @@ export default function Students() {
 
       {/* Controls row */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl shadow-sm">
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <label className="text-sm font-semibold text-gray-700 whitespace-nowrap">Branch:</label>
-          {branch?.toLowerCase() === "all" ? (
-            <select
-              className="flex-1 sm:flex-none border rounded-lg px-3 py-2 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-purple-500 transition"
-              value={selectedBranch}
-              onChange={(e) => setSelectedBranch(e.target.value)}
-            >
-              <option value="all">All Branches</option>
-              {allBranches.map((b) => (
-                <option value={b} key={b}>{b.toUpperCase()}</option>
-              ))}
-            </select>
-          ) : (
-            <div className="text-sm font-bold text-purple-600 bg-purple-50 px-3 py-1 rounded-full uppercase tracking-wider">{branch}</div>
-          )}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <label className="text-sm font-semibold text-gray-700 whitespace-nowrap">Branch:</label>
+            {branch?.toLowerCase() === "all" ? (
+              <select
+                className="flex-1 sm:flex-none border rounded-lg px-3 py-2 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-purple-500 transition"
+                value={selectedBranch}
+                onChange={(e) => setSelectedBranch(e.target.value)}
+              >
+                <option value="all">All Branches</option>
+                {allBranches.map((b) => (
+                  <option value={b} key={b}>{b.toUpperCase()}</option>
+                ))}
+              </select>
+            ) : (
+              <div className="text-sm font-bold text-purple-600 bg-purple-50 px-3 py-1 rounded-full uppercase tracking-wider">{branch}</div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 bg-orange-50 px-3 py-1.5 rounded-xl border border-orange-100">
+            <input
+              type="checkbox"
+              id="breakFilter"
+              checked={showBreakStudents}
+              onChange={(e) => setShowBreakStudents(e.target.checked)}
+              className="w-4 h-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded cursor-pointer"
+            />
+            <label htmlFor="breakFilter" className="text-sm font-bold text-orange-700 cursor-pointer select-none">
+              Break Students
+            </label>
+          </div>
         </div>
 
         <div className="text-xs md:text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full flex items-center gap-2">
@@ -419,7 +838,13 @@ export default function Students() {
                   )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-x-6 md:gap-y-4">
-                    <Input label="Roll Number" value={s.rollNumber} onChange={(e) => handleChange(index, "rollNumber", e.target.value)} required />
+                    <Input
+                      label="Roll Number"
+                      value={s.rollNumber}
+                      onChange={(e) => handleChange(index, "rollNumber", e.target.value)}
+                      required
+                      error={duplicateErrors[index]}
+                    />
                     <Input label="Student Name" value={s.studentName.toUpperCase()} onChange={(e) => handleChange(index, "studentName", e.target.value)} required />
                     <Input label="Father Name" value={s.fatherName.toUpperCase()} onChange={(e) => handleChange(index, "fatherName", e.target.value)} />
                     <Input label="Mother Name" value={s.motherName.toUpperCase()} onChange={(e) => handleChange(index, "motherName", e.target.value)} />
@@ -497,34 +922,106 @@ export default function Students() {
             </div>
           </div>
 
+          {selectedStudents.length > 0 && (
+            <div className="mx-6 my-4 flex items-center justify-between bg-purple-50 border border-purple-100 p-4 rounded-xl animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-center gap-3">
+                <span className="bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full uppercase tracking-wider">
+                  {selectedStudents.length} Selected
+                </span>
+                <span className="text-sm font-medium text-purple-950">Bulk Actions:</span>
+              </div>
+              <div className="flex gap-2">
+                {showBreakStudents ? (
+                  <>
+                    <Button size="sm" variant="secondary" className="bg-white text-green-600 border-green-100 hover:bg-green-50" onClick={handleBulkRestore}>Bulk Restore</Button>
+                    <Button size="sm" variant="secondary" className="bg-white text-orange-600 border-orange-100 hover:bg-orange-50" onClick={handleBulkBreakOver}>Bulk Break Over</Button>
+                  </>
+                ) : (
+                  <>
+                    <Button size="sm" variant="secondary" className="bg-white text-orange-600 border-orange-100 hover:bg-orange-50" onClick={handleBulkBreak}>Bulk Break</Button>
+                  </>
+                )}
+                <Button size="sm" variant="danger" className="text-xs font-bold" onClick={handleBulkDelete}>Delete All</Button>
+                <button
+                  onClick={() => setSelectedStudents([])}
+                  className="text-xs text-purple-400 hover:text-purple-600 font-medium px-2 py-1 transition-colors"
+                >
+                  Clear Selection
+                </button>
+              </div>
+            </div>
+          )}
+
           <Table>
+
+
             <THead>
               <TR className="hover:bg-transparent">
+                <TH className="w-10">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded cursor-pointer"
+                    checked={studentList.length > 0 && selectedStudents.length === studentList.length}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedStudents(studentList.map(s => s.roll_number));
+                      } else {
+                        setSelectedStudents([]);
+                      }
+                    }}
+                  />
+                </TH>
                 <TH>Roll</TH>
                 <TH>Name</TH>
-                <TH className="hidden md:table-cell">Father</TH>
-                <TH className="hidden sm:table-cell">Course</TH>
-                <TH className="hidden lg:table-cell">Batch</TH>
+                <TH>Father</TH>
+                <TH>Course</TH>
+                <TH>Batch</TH>
                 <TH>Actions</TH>
+
               </TR>
             </THead>
 
             <TBody>
               {studentList.map((s) => (
-                <TR key={s.roll_number}>
+                <TR key={s.roll_number} className={selectedStudents.includes(s.roll_number) ? "bg-purple-50/50" : ""}>
+                  <TD className="px-6">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded cursor-pointer"
+                      checked={selectedStudents.includes(s.roll_number)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedStudents([...selectedStudents, s.roll_number]);
+                        } else {
+                          setSelectedStudents(selectedStudents.filter(id => id !== s.roll_number));
+                        }
+                      }}
+                    />
+                  </TD>
                   <TD className="font-bold text-gray-900 px-6">{s.roll_number}</TD>
+
                   <TD className="font-medium text-gray-700 px-6">{s.student_name}</TD>
-                  <TD className="text-gray-500 hidden md:table-cell px-6">{s.father_name}</TD>
-                  <TD className="hidden sm:table-cell px-6">
+                  <TD className="text-gray-500 px-6">{s.father_name}</TD>
+                  <TD className="px-6">
                     <Badge variant="blue">{s.course}</Badge>
                   </TD>
-                  <TD className="text-gray-500 hidden lg:table-cell px-6">{s.batch_time || "-"}</TD>
+                  <TD className="text-gray-500 px-6">{s.batch_time || "-"}</TD>
                   <TD className="px-6">
                     <div className="flex flex-wrap gap-1.5">
-                      <Button size="sm" variant="secondary" className="bg-blue-50 text-blue-600 hover:bg-blue-100" onClick={() => openViewModal(s)}>View</Button>
-                      <Button size="sm" variant="secondary" className="bg-yellow-50 text-yellow-600 hover:bg-yellow-100" onClick={() => openUpdateModal(s)}>Edit</Button>
-                      <Button size="sm" variant="success" onClick={() => navigate("/portal/fees", { state: { roll: s.roll_number, fromStudents: true } })}>Fees</Button>
-                      <Button size="sm" variant="danger" onClick={() => handleDelete(s.roll_number)}>Del</Button>
+                      {showBreakStudents ? (
+                        <>
+                          <Button size="sm" variant="secondary" className="bg-green-50 text-green-600 hover:bg-green-100" onClick={() => handleRestore(s)}>Restore</Button>
+                          <Button size="sm" variant="secondary" className="bg-orange-50 text-orange-600 hover:bg-orange-100" onClick={() => handleBreakOver(s)}>Break Over</Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button size="sm" variant="secondary" className="bg-blue-50 text-blue-600 hover:bg-blue-100" onClick={() => openViewModal(s)}>View</Button>
+                          <Button size="sm" variant="secondary" className="bg-yellow-50 text-yellow-600 hover:bg-yellow-100" onClick={() => openUpdateModal(s)}>Edit</Button>
+                          <Button size="sm" variant="secondary" className="bg-orange-50 text-orange-600 hover:bg-orange-100" onClick={() => handleBreak(s)}>Break</Button>
+                          <Button size="sm" variant="success" onClick={() => navigate("/portal/fees", { state: { roll: s.roll_number, fromStudents: true } })}>Fees</Button>
+                          <Button size="sm" variant="danger" onClick={() => handleDelete(s.roll_number)}>Del</Button>
+                        </>
+                      )}
                     </div>
                   </TD>
                 </TR>
@@ -574,6 +1071,53 @@ export default function Students() {
               onChange={(date) => setEditForm({ ...editForm, addmission_date: date ? date.toLocaleDateString('en-GB') : "" })}
               dateFormat="dd/MM/yyyy"
               className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white focus:ring-2 focus:ring-purple-500 transition outline-none"
+            />
+          </div>
+        </div>
+      </Modal>
+
+      {/* BREAK MODAL */}
+      <Modal
+        isOpen={breakModalOpen}
+        onClose={() => setBreakModalOpen(false)}
+        title="Put Student on Break"
+        footer={
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setBreakModalOpen(false)}>Cancel</Button>
+            <Button onClick={confirmBreak}>Confirm Break</Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Select the break period for <strong>{studentForBreak?.student_name}</strong>.
+          </p>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-gray-500 ml-1 uppercase tracking-wider">Break From</label>
+            <DatePicker
+              selected={breakDates.from}
+              onChange={(date) => setBreakDates({ ...breakDates, from: date })}
+              dateFormat="dd/MM/yyyy"
+              placeholderText="AUTO (Today)"
+              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white focus:ring-2 focus:ring-purple-500 transition outline-none"
+              showMonthDropdown
+              showYearDropdown
+              dropdownMode="select"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-gray-500 ml-1 uppercase tracking-wider">Break To</label>
+            <DatePicker
+              selected={breakDates.to}
+              onChange={(date) => setBreakDates({ ...breakDates, to: date })}
+              dateFormat="dd/MM/yyyy"
+              placeholderText="AUTO (Indefinite)"
+              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white focus:ring-2 focus:ring-purple-500 transition outline-none"
+              showMonthDropdown
+              showYearDropdown
+              dropdownMode="select"
             />
           </div>
         </div>

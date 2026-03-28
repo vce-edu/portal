@@ -48,7 +48,7 @@ export default function TransactionTable() {
     // search filter
     if (search.trim()) {
       query = query.or(
-        `student_name.ilike.%${search}%,receipt_no.ilike.%${search}%,roll_no.ilike.%${search}%`
+        `student_name.ilike.%${search}%,receipt_no.ilike.%${search}%,roll_no.ilike.%${search}%,father_name.ilike.%${search}%`
       );
     }
 
@@ -126,7 +126,7 @@ export default function TransactionTable() {
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1">
             <Input
-              placeholder="Search by name, receipt, or roll..."
+              placeholder="Search by name, father, receipt, or roll..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               icon={() => (

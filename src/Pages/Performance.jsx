@@ -59,6 +59,7 @@ export default function Performance() {
 
   const filteredDetails = examDetails.filter((item) =>
     item.student_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    item.father_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.roll_number.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -96,7 +97,7 @@ export default function Performance() {
           </div>
           <div className="w-full sm:w-72">
             <Input
-              placeholder="Search student or roll..."
+              placeholder="Search student, roll or father..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               icon={() => (

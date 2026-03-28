@@ -337,7 +337,7 @@ export default function Fees() {
         isOpen={open}
         onClose={() => setOpen(false)}
         title="Fees Payment"
-        maxWidth="max-w-sm"
+        maxWidth="max-w-md"
         footer={
           <>
             <Button variant="outline" onClick={() => setOpen(false)} disabled={loadingSubmit}>Cancel</Button>
@@ -354,8 +354,20 @@ export default function Fees() {
             placeholder="e.g. m_101"
             autoFocus
           />
-          <Input label="Student Name" value={form.student} readOnly placeholder="Auto-filled" />
-          <Input label="Father Name" value={form.father} readOnly placeholder="Auto-filled" />
+          <Input
+            label="Student Name"
+            value={form.student}
+            readOnly
+            placeholder={loadingStudent ? "Searching..." : "Auto-filled"}
+            className={loadingStudent ? "animate-pulse" : ""}
+          />
+          <Input
+            label="Father Name"
+            value={form.father}
+            readOnly
+            placeholder={loadingStudent ? "Searching..." : "Auto-filled"}
+            className={loadingStudent ? "animate-pulse" : ""}
+          />
 
           <div className="grid grid-cols-2 gap-4">
             <Input
@@ -378,7 +390,7 @@ export default function Fees() {
         isOpen={historyOpen && !feesHistory.length}
         onClose={() => setHistoryOpen(false)}
         title="Lookup History"
-        maxWidth="max-w-sm"
+        maxWidth="max-w-md"
       >
         <div className="space-y-6">
           <Input

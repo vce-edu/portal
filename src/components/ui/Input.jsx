@@ -50,4 +50,26 @@ const Select = ({ label, options, className = "", ...props }) => (
     </div>
 );
 
-export { Input, Select };
+const Textarea = ({ label, error, className = "", ...props }) => {
+    return (
+        <div className={`flex flex-col gap-1.5 w-full ${className}`}>
+            {label && (
+                <label className="text-sm font-black text-purple-900 ml-1 uppercase tracking-widest">
+                    {label}
+                </label>
+            )}
+            <textarea
+                className={`
+          w-full border border-gray-200 rounded-2xl px-5 py-3.5 text-base font-semibold transition outline-none
+          focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder:text-gray-300 min-h-[120px] resize-y
+          ${error ? "border-red-500 ring-red-100 bg-red-50/10" : "bg-white"}
+          ${props.readOnly ? "bg-purple-50 cursor-not-allowed text-purple-900/40" : ""}
+        `}
+                {...props}
+            />
+            {error && <p className="text-[10px] text-red-500 ml-1 font-bold italic">{error}</p>}
+        </div>
+    );
+};
+
+export { Input, Select, Textarea };

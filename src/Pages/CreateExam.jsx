@@ -3,7 +3,7 @@ import { thirdSupabase } from "../createClient";
 import { Card, CardHeader } from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
-import { Input } from "../components/ui/Input";
+import { Input, Textarea } from "../components/ui/Input";
 import Modal from "../components/ui/Modal";
 import { useAuth } from "../context/AuthContext";
 
@@ -282,6 +282,64 @@ function ExamDetailView({ exam, onBack, onSaved, questionPool }) {
                     </div>
                 </div>
 
+                {/* Add Section */}
+                {showAddSection && (
+                    <div className="mb-8 pb-6 border-b border-gray-100 space-y-6">
+                        <h4 className="font-black text-gray-700">New Questions to Add</h4>
+
+                        {selectedPoolIds.length > 0 && (
+                            <div className="flex items-center gap-3">
+                                <Badge variant="purple">{selectedPoolIds.length} from pool selected</Badge>
+                                <button onClick={() => setSelectedPoolIds([])} className="text-xs font-bold text-red-500 hover:underline">Clear</button>
+                            </div>
+                        )}
+
+                        {newQuestions.map((q, qi) => (
+                            <div key={qi} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-4">
+                                <div className="flex gap-3 items-start">
+                                    <div className="flex-1">
+                                        <Textarea placeholder={`Question ${questions.length + newQuestions.length - qi} text...`} value={q.question_text} onChange={(e) => updateNewQ(qi, "question_text", e.target.value)} />
+                                    </div>
+                                    <button onClick={() => { const u = [...newQuestions]; u.splice(qi, 1); setNewQuestions(u); }} className="p-2 text-gray-300 hover:text-red-500 mt-1">
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold text-gray-500 uppercase">Marks:</span>
+                                    <input type="number" className="w-16 p-1 border rounded-lg text-sm font-bold text-center" value={q.marks} onChange={(e) => updateNewQ(qi, "marks", parseInt(e.target.value))} />
+                                </div>
+                                <div className="space-y-2 pl-4 border-l-2 border-purple-50">
+                                    {q.options.map((opt, oi) => (
+                                        <div key={oi} className="flex items-center gap-3">
+                                            <input type="checkbox" checked={opt.is_correct} onChange={(e) => updateOpt(qi, oi, "is_correct", e.target.checked)} className="w-4 h-4 rounded flex-shrink-0" />
+                                            <Input placeholder={`Option ${oi + 1}`} className={opt.is_correct ? "bg-green-50 border-green-200" : ""} value={opt.text} onChange={(e) => updateOpt(qi, oi, "text", e.target.value)} />
+                                            <button onClick={() => removeOpt(qi, oi)} className="text-gray-300 hover:text-red-500 flex-shrink-0">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    ))}
+                                    <button onClick={() => addOpt(qi)} className="text-sm font-bold text-purple-600 hover:underline pl-8">+ Add Option</button>
+                                </div>
+                            </div>
+                        ))}
+
+                        {(selectedPoolIds.length > 0 || newQuestions.length > 0) && (
+                            <div className="flex justify-end gap-3">
+                                <Button variant="outline" onClick={() => { setShowAddSection(false); setNewQuestions([]); setSelectedPoolIds([]); }}>
+                                    Cancel
+                                </Button>
+                                <Button onClick={handleAddQuestions} disabled={addingQuestions}>
+                                    {addingQuestions ? "Adding..." : `Save ${selectedPoolIds.length + newQuestions.length} Question(s)`}
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* Existing Questions */}
                 <div className="space-y-4">
                     {loadingQ ? (
@@ -303,7 +361,7 @@ function ExamDetailView({ exam, onBack, onSaved, questionPool }) {
                                                 </span>
                                                 <span className="text-xs font-bold text-purple-600 uppercase tracking-widest">Editing</span>
                                             </div>
-                                            <Input
+                                            <Textarea
                                                 label="Question Text"
                                                 value={editingQuestion.question_text}
                                                 onChange={(e) => updateEQ("question_text", e.target.value)}
@@ -348,12 +406,12 @@ function ExamDetailView({ exam, onBack, onSaved, questionPool }) {
                                                     <span className="w-6 h-6 rounded-full bg-purple-600 text-white text-[10px] font-black flex items-center justify-center flex-shrink-0">
                                                         {eq.question_order ?? idx + 1}
                                                     </span>
-                                                    <p className="font-bold text-gray-900">{q.question_text}</p>
+                                                    <p className="font-bold text-gray-900 whitespace-pre-wrap">{q.question_text}</p>
                                                 </div>
                                                 {q.question_options && q.question_options.length > 0 && (
                                                     <div className="grid grid-cols-2 gap-2 pl-8">
                                                         {q.question_options.map(opt => (
-                                                            <span key={opt.option_id} className={`text-sm px-3 py-1 rounded-xl font-medium ${opt.is_correct ? "bg-green-100 text-green-700 border border-green-200" : "bg-white text-gray-500 border border-gray-100"}`}>
+                                                            <span key={opt.option_id} className={`text-sm px-3 py-1 rounded-xl font-medium whitespace-pre-wrap ${opt.is_correct ? "bg-green-100 text-green-700 border border-green-200" : "bg-white text-gray-500 border border-gray-100"}`}>
                                                                 {opt.option_text}
                                                             </span>
                                                         ))}
@@ -393,64 +451,6 @@ function ExamDetailView({ exam, onBack, onSaved, questionPool }) {
                         </div>
                     )}
                 </div>
-
-                {/* Add Section */}
-                {showAddSection && (
-                    <div className="mt-8 pt-6 border-t border-gray-100 space-y-6">
-                        <h4 className="font-black text-gray-700">New Questions to Add</h4>
-
-                        {selectedPoolIds.length > 0 && (
-                            <div className="flex items-center gap-3">
-                                <Badge variant="purple">{selectedPoolIds.length} from pool selected</Badge>
-                                <button onClick={() => setSelectedPoolIds([])} className="text-xs font-bold text-red-500 hover:underline">Clear</button>
-                            </div>
-                        )}
-
-                        {newQuestions.map((q, qi) => (
-                            <div key={qi} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-4">
-                                <div className="flex gap-3 items-start">
-                                    <div className="flex-1">
-                                        <Input placeholder={`Question ${qi + 1} text...`} value={q.question_text} onChange={(e) => updateNewQ(qi, "question_text", e.target.value)} />
-                                    </div>
-                                    <button onClick={() => { const u = [...newQuestions]; u.splice(qi, 1); setNewQuestions(u); }} className="p-2 text-gray-300 hover:text-red-500 mt-1">
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                    </button>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold text-gray-500 uppercase">Marks:</span>
-                                    <input type="number" className="w-16 p-1 border rounded-lg text-sm font-bold text-center" value={q.marks} onChange={(e) => updateNewQ(qi, "marks", parseInt(e.target.value))} />
-                                </div>
-                                <div className="space-y-2 pl-4 border-l-2 border-purple-50">
-                                    {q.options.map((opt, oi) => (
-                                        <div key={oi} className="flex items-center gap-3">
-                                            <input type="checkbox" checked={opt.is_correct} onChange={(e) => updateOpt(qi, oi, "is_correct", e.target.checked)} className="w-4 h-4 rounded flex-shrink-0" />
-                                            <Input placeholder={`Option ${oi + 1}`} className={opt.is_correct ? "bg-green-50 border-green-200" : ""} value={opt.text} onChange={(e) => updateOpt(qi, oi, "text", e.target.value)} />
-                                            <button onClick={() => removeOpt(qi, oi)} className="text-gray-300 hover:text-red-500 flex-shrink-0">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    ))}
-                                    <button onClick={() => addOpt(qi)} className="text-sm font-bold text-purple-600 hover:underline pl-8">+ Add Option</button>
-                                </div>
-                            </div>
-                        ))}
-
-                        {(selectedPoolIds.length > 0 || newQuestions.length > 0) && (
-                            <div className="flex justify-end gap-3">
-                                <Button variant="outline" onClick={() => { setShowAddSection(false); setNewQuestions([]); setSelectedPoolIds([]); }}>
-                                    Cancel
-                                </Button>
-                                <Button onClick={handleAddQuestions} disabled={addingQuestions}>
-                                    {addingQuestions ? "Adding..." : `Save ${selectedPoolIds.length + newQuestions.length} Question(s)`}
-                                </Button>
-                            </div>
-                        )}
-                    </div>
-                )}
             </Card>
 
             {/* Pool Modal */}
@@ -474,7 +474,7 @@ function ExamDetailView({ exam, onBack, onSaved, questionPool }) {
                                     className={`p-4 rounded-2xl border cursor-pointer flex items-center justify-between gap-4 transition-all ${selectedPoolIds.includes(q.question_id) ? "bg-purple-600 border-purple-600 text-white" : "bg-white border-gray-100 hover:border-purple-200"}`}
                                 >
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-bold truncate">{q.question_text}</p>
+                                        <p className="font-bold whitespace-pre-wrap">{q.question_text}</p>
                                         <p className={`text-[10px] uppercase font-bold tracking-widest ${selectedPoolIds.includes(q.question_id) ? "text-purple-200" : "text-gray-400"}`}>
                                             {q.marks ?? 1} Mark(s) &bull; {q.question_options?.length || 0} Options
                                         </p>
@@ -765,7 +765,7 @@ export default function CreateExam() {
                             <Card key={qi} className="bg-white border-gray-100">
                                 <div className="flex justify-between items-start mb-6">
                                     <div className="flex-1 space-y-4">
-                                        <Input placeholder={`Question ${qi + 1} text...`} value={q.question_text} onChange={(e) => updateNewQuestion(qi, "question_text", e.target.value)} />
+                                        <Textarea placeholder={`Question ${newQuestions.length - qi} text...`} value={q.question_text} onChange={(e) => updateNewQuestion(qi, "question_text", e.target.value)} />
                                         <div className="flex items-center gap-2">
                                             <span className="text-xs font-bold text-gray-500 uppercase">Marks:</span>
                                             <input type="number" className="w-16 p-1 border rounded-lg text-sm font-bold text-center" value={q.marks} onChange={(e) => updateNewQuestion(qi, "marks", parseInt(e.target.value))} />
@@ -838,7 +838,7 @@ export default function CreateExam() {
                                     className={`p-4 rounded-2xl border cursor-pointer flex items-center justify-between gap-4 transition-all ${selectedPoolIds.includes(q.question_id) ? "bg-purple-600 border-purple-600 text-white" : "bg-white border-gray-100 hover:border-purple-200"}`}
                                 >
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-bold truncate">{q.question_text}</p>
+                                        <p className="font-bold whitespace-pre-wrap">{q.question_text}</p>
                                         <p className={`text-[10px] uppercase font-bold tracking-widest ${selectedPoolIds.includes(q.question_id) ? "text-purple-200" : "text-gray-400"}`}>
                                             {q.marks ?? 1} Mark(s) &bull; {q.question_options?.length || 0} Options
                                         </p>

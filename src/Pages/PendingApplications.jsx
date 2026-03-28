@@ -288,6 +288,8 @@ export default function PendingApplications() {
         if (activeTab === "student") {
             return (
                 item.student_name?.toLowerCase().includes(q) ||
+                item.father_name?.toLowerCase().includes(q) ||
+                item.roll_number?.toLowerCase().includes(q) ||
                 item.email?.toLowerCase().includes(q) ||
                 item.phone?.toLowerCase().includes(q) ||
                 item.branch?.toLowerCase().includes(q) ||
@@ -295,7 +297,11 @@ export default function PendingApplications() {
             );
         }
         if (activeTab === "transaction") {
-            return item.roll_number?.toLowerCase().includes(q);
+            return (
+                item.roll_number?.toLowerCase().includes(q) ||
+                item.student_name?.toLowerCase().includes(q) ||
+                item.father_name?.toLowerCase().includes(q)
+            );
         }
         return true;
     });

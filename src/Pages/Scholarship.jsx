@@ -62,7 +62,7 @@ export default function Scholarship() {
             }
 
             if (searchQuery.trim()) {
-                query = query.or(`student_name.ilike.%${searchQuery}%,roll_number.ilike.%${searchQuery}%,phone_number.ilike.%${searchQuery}%`);
+                query = query.or(`student_name.ilike.%${searchQuery}%,roll_number.ilike.%${searchQuery}%,phone_number.ilike.%${searchQuery}%,father_name.ilike.%${searchQuery}%`);
             }
 
             const { data: response, count, error } = await query;
@@ -204,7 +204,7 @@ export default function Scholarship() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-6 rounded-3xl shadow-sm border border-gray-100 items-center">
                 <div className="md:col-span-2">
                     <Input
-                        placeholder="Search by name, roll, or phone..."
+                        placeholder="Search by name, roll, father, or phone..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full"
