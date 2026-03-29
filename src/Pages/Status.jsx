@@ -8,6 +8,8 @@ import { Input, Select } from "../components/ui/Input";
 import { Card, CardHeader } from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import { Table, THead, TBody, TH, TD, TR } from "../components/ui/Table";
+import NoteTooltip from "../components/ui/NoteTooltip";
+import BatchTimePicker from "../components/ui/BatchTimePicker";
 
 export default function Status() {
   const today = new Date().toISOString().split("T")[0];
@@ -31,6 +33,45 @@ export default function Status() {
   const navigate = useNavigate();
   const [selectedBranch, setSelectedBranch] = useState(branch === "all" ? "main" : branch);
   const [search, setSearch] = useState("");
+  // Default start = current hour, end = start + 1
+  const defaultBatchFilter = () => {
+    const now = new Date();
+    const sH24 = now.getHours();
+    const eH24 = sH24 + 1;
+    const toH12 = (h24) => ({ h: String(h24 % 12 || 12), m: "00", p: h24 < 12 ? "AM" : "PM" });
+    const s = toH12(sH24), e = toH12(eH24 > 23 ? 23 : eH24);
+    return { sH: s.h, sM: s.m, sP: s.p, eH: e.h, eM: e.m, eP: e.p, startH24: sH24, endH24: eH24 > 23 ? 23 : eH24 };
+  };
+  const [batchTimeFilter, setBatchTimeFilter] = useState(defaultBatchFilter);
+
+  // Parse a batch_time string like "09:00 AM - 10:30 PM" or "03 : 00 PM to 04 : 00 PM" → start hour in 24h
+  const parseBatchStartH24 = (batchTime) => {
+    if (!batchTime) return null;
+    // Allow optional spaces around colon (DB stores "03 : 00 PM to 04 : 00 PM")
+    const re = /(\d{1,2})\s*:\s*(\d{2})\s*(AM|PM)/i;
+    const m = re.exec(batchTime.trim());
+    if (!m) return null;
+    const h12 = parseInt(m[1], 10);
+    const period = m[3].toUpperCase();
+    if (period === "AM") return h12 === 12 ? 0 : h12;
+    return h12 === 12 ? 12 : h12 + 12;
+  };
+
+  // Client-side filter: hour-based matching
+  const { startH24, endH24 } = batchTimeFilter || {};
+  const hasFilter = startH24 != null;
+  const filteredRows = hasFilter
+    ? rows.filter((r) => {
+        const bH24 = parseBatchStartH24(r.batch_time);
+        if (bH24 === null) return false;
+        if (endH24 != null) {
+          // Range: batch start must fall within [startH24, endH24)
+          return bH24 >= startH24 && bH24 < endH24;
+        }
+        // Start only: batch start hour must equal startH24
+        return bH24 === startH24;
+      })
+    : rows;
   useEffect(() => {
     fetchStatus(selectedBranch, 0, search);
   }, [showOnlyPending, selectedBranch, search]);
@@ -61,7 +102,7 @@ export default function Status() {
       setLoading(true);
       setError(null);
 
-      const { data, error } = await supabase.rpc(
+      const { data, error: rpcError } = await supabase.rpc(
         "get_student_fee_status",
         {
           p_branch: branchToUse,
@@ -72,12 +113,26 @@ export default function Status() {
         }
       );
 
-      if (error) throw error;
+      if (rpcError) throw rpcError;
 
-      setRows(data || []);
+      const rows = data || [];
+
+      // Supplement with notes from students table
+      if (rows.length > 0) {
+        const rolls = rows.map((r) => r.roll_number);
+        const { data: noteData } = await supabase
+          .from("students")
+          .select("roll_number, notes")
+          .in("roll_number", rolls);
+
+        const notesMap = {};
+        (noteData || []).forEach((n) => { notesMap[n.roll_number] = n.notes; });
+        setRows(rows.map((r) => ({ ...r, notes: notesMap[r.roll_number] || null })));
+      } else {
+        setRows([]);
+      }
+
       setPage(pageToLoad);
-
-
     } catch (err) {
       console.error(err);
       setError(err.message || "Failed to load data");
@@ -171,7 +226,7 @@ export default function Status() {
         )}
       </div>
 
-      <Card className="bg-white/80 backdrop-blur-md shadow-sm border-purple-100">
+      <Card className="bg-white/80 backdrop-blur-md shadow-sm border-purple-100 !overflow-visible">
         <div className="flex flex-col md:flex-row items-center gap-6">
           <div className="flex-1 w-full">
             <form
@@ -193,17 +248,38 @@ export default function Status() {
             </form>
           </div>
 
-          <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-2xl border border-gray-100">
-            <input
-              type="checkbox"
-              id="pendingOnly"
-              className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
-              checked={showOnlyPending}
-              onChange={(e) => setShowOnlyPending(e.target.checked)}
-            />
-            <label htmlFor="pendingOnly" className="text-sm font-bold text-gray-600 cursor-pointer select-none">
-              Show Pending Only
-            </label>
+          <div className="flex flex-wrap items-end gap-3">
+            {/* Pending filter */}
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 rounded-2xl border border-gray-100">
+              <input
+                type="checkbox"
+                id="pendingOnly"
+                className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
+                checked={showOnlyPending}
+                onChange={(e) => setShowOnlyPending(e.target.checked)}
+              />
+              <label htmlFor="pendingOnly" className="text-sm font-bold text-gray-600 cursor-pointer select-none">
+                Pending Only
+              </label>
+            </div>
+
+            {/* Batch time filter */}
+            <div className="flex items-end gap-2">
+              <BatchTimePicker
+                label="Filter by Batch"
+                value={batchTimeFilter}
+                onChange={setBatchTimeFilter}
+              />
+              {hasFilter && (
+                <button
+                  type="button"
+                  onClick={() => setBatchTimeFilter({})}
+                  className="mb-0.5 text-xs font-bold text-red-400 hover:text-red-600 px-2 py-2 rounded-lg hover:bg-red-50 transition-colors whitespace-nowrap"
+                >
+                  ✕ Clear
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </Card>
@@ -238,10 +314,32 @@ export default function Status() {
             </THead>
 
             <TBody>
-              {rows.map((r, i) => (
+              {filteredRows.length === 0 && !loading && (
+                <TR>
+                  <TD colSpan={8} className="py-12 text-center text-gray-400 font-medium italic">
+                    {batchTimeFilter ? "No students found for this batch time." : "No records found."}
+                  </TD>
+                </TR>
+              )}
+              {filteredRows.map((r, i) => (
                 <TR key={i}>
                   <TD className="font-bold text-gray-900">{r.roll_number}</TD>
-                  <TD className="font-medium text-gray-700">{r.student_name}</TD>
+                  <TD className="font-medium text-gray-700">
+                    <span className="inline-flex items-center gap-0.5">
+                      {r.student_name}
+                      <NoteTooltip
+                        note={r.notes}
+                        rollNumber={r.roll_number}
+                        onNoteSaved={(newNote) =>
+                          setRows((prev) =>
+                            prev.map((x) =>
+                              x.roll_number === r.roll_number ? { ...x, notes: newNote } : x
+                            )
+                          )
+                        }
+                      />
+                    </span>
+                  </TD>
                   <TD className="text-gray-500 hidden lg:table-cell">{r.father_name}</TD>
                   <TD className="text-gray-500 hidden md:table-cell">{r.batch_time}</TD>
                   <TD className="font-bold text-gray-400">₹{r.expected_amount}</TD>

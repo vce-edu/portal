@@ -8,6 +8,8 @@ import Button from "../components/ui/Button";
 import { Card, CardHeader } from "../components/ui/Card";
 import Modal from "../components/ui/Modal";
 import { Input, Select } from "../components/ui/Input";
+import NoteTooltip from "../components/ui/NoteTooltip";
+import BatchTimePicker from "../components/ui/BatchTimePicker";
 import Badge from "../components/ui/Badge";
 import { Table, THead, TBody, TH, TD, TR } from "../components/ui/Table";
 
@@ -878,7 +880,11 @@ export default function Students() {
                       readOnly={branch?.toLowerCase() !== "all"}
                       className={branch?.toLowerCase() !== "all" ? "opacity-75" : ""}
                     />
-                    <Input label="Batch Time" value={s.batchTime} onChange={(e) => handleChange(index, "batchTime", e.target.value)} />
+                    <BatchTimePicker
+                      label="Batch Time"
+                      value={s.batchTime}
+                      onChange={(val) => handleChange(index, "batchTime", val)}
+                    />
                   </div>
                 </div>
               ))}
@@ -1000,7 +1006,22 @@ export default function Students() {
                   </TD>
                   <TD className="font-bold text-gray-900 px-6">{s.roll_number}</TD>
 
-                  <TD className="font-medium text-gray-700 px-6">{s.student_name}</TD>
+                  <TD className="font-medium text-gray-700 px-6">
+                    <span className="inline-flex items-center gap-0.5">
+                      {s.student_name}
+                      <NoteTooltip
+                        note={s.notes}
+                        rollNumber={s.roll_number}
+                        onNoteSaved={(newNote) =>
+                          setStudentList((prev) =>
+                            prev.map((x) =>
+                              x.roll_number === s.roll_number ? { ...x, notes: newNote } : x
+                            )
+                          )
+                        }
+                      />
+                    </span>
+                  </TD>
                   <TD className="text-gray-500 px-6">{s.father_name}</TD>
                   <TD className="px-6">
                     <Badge variant="blue">{s.course}</Badge>
@@ -1057,7 +1078,11 @@ export default function Students() {
           <Input label="Father Name" value={editForm.father_name} onChange={(e) => setEditForm({ ...editForm, father_name: e.target.value })} />
           <Input label="Mother Name" value={editForm.mother_name} onChange={(e) => setEditForm({ ...editForm, mother_name: e.target.value })} />
           <Input label="Course" value={editForm.course} onChange={(e) => setEditForm({ ...editForm, course: e.target.value })} />
-          <Input label="Batch Time" value={editForm.batch_time} onChange={(e) => setEditForm({ ...editForm, batch_time: e.target.value })} />
+          <BatchTimePicker
+            label="Batch Time"
+            value={editForm.batch_time}
+            onChange={(val) => setEditForm({ ...editForm, batch_time: val })}
+          />
 
           <div className="grid grid-cols-2 gap-4">
             <Input label="Duration" value={editForm.duration} onChange={(e) => setEditForm({ ...editForm, duration: e.target.value })} />
