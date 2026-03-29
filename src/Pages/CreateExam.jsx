@@ -177,7 +177,7 @@ function ExamDetailView({ exam, onBack, onSaved, questionPool }) {
 
     const alreadyLinkedIds = questions.map(eq => eq.questions?.question_id).filter(Boolean);
     const filteredPool = (questionPool || []).filter(q =>
-        q.question_text.toLowerCase().includes(poolSearch.toLowerCase()) && !alreadyLinkedIds.includes(q.question_id)
+        (q.question_text || "").replaceAll("/n", " ").toLowerCase().includes(poolSearch.toLowerCase()) && !alreadyLinkedIds.includes(q.question_id)
     );
 
     return (
@@ -296,16 +296,31 @@ function ExamDetailView({ exam, onBack, onSaved, questionPool }) {
 
                         {newQuestions.map((q, qi) => (
                             <div key={qi} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-4">
-                                <div className="flex gap-3 items-start">
-                                    <div className="flex-1">
-                                        <Textarea placeholder={`Question ${questions.length + newQuestions.length - qi} text...`} value={q.question_text} onChange={(e) => updateNewQ(qi, "question_text", e.target.value)} />
+                                    <div className="flex gap-3 items-start">
+                                        <div className="flex-1">
+                                            <Textarea
+                                                placeholder={`Question ${questions.length + newQuestions.length - qi} text...`}
+                                                value={(q.question_text || "").replaceAll("/n", "\n")}
+                                                onChange={(e) => updateNewQ(qi, "question_text", e.target.value.replaceAll("\n", "/n"))}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Enter") {
+                                                        e.preventDefault();
+                                                        const { selectionStart, selectionEnd, value } = e.target;
+                                                        const newVal = value.substring(0, selectionStart) + "/n" + value.substring(selectionEnd);
+                                                        updateNewQ(qi, "question_text", newVal);
+                                                        setTimeout(() => {
+                                                            e.target.selectionStart = e.target.selectionEnd = selectionStart + 2;
+                                                        }, 0);
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+                                        <button onClick={() => { const u = [...newQuestions]; u.splice(qi, 1); setNewQuestions(u); }} className="p-2 text-gray-300 hover:text-red-500 mt-1">
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
                                     </div>
-                                    <button onClick={() => { const u = [...newQuestions]; u.splice(qi, 1); setNewQuestions(u); }} className="p-2 text-gray-300 hover:text-red-500 mt-1">
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                    </button>
-                                </div>
                                 <div className="flex items-center gap-2">
                                     <span className="text-xs font-bold text-gray-500 uppercase">Marks:</span>
                                     <input type="number" className="w-16 p-1 border rounded-lg text-sm font-bold text-center" value={q.marks} onChange={(e) => updateNewQ(qi, "marks", parseInt(e.target.value))} />
@@ -363,8 +378,19 @@ function ExamDetailView({ exam, onBack, onSaved, questionPool }) {
                                             </div>
                                             <Textarea
                                                 label="Question Text"
-                                                value={editingQuestion.question_text}
-                                                onChange={(e) => updateEQ("question_text", e.target.value)}
+                                                value={(editingQuestion.question_text || "").replaceAll("/n", "\n")}
+                                                onChange={(e) => updateEQ("question_text", e.target.value.replaceAll("\n", "/n"))}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Enter") {
+                                                        e.preventDefault();
+                                                        const { selectionStart, selectionEnd, value } = e.target;
+                                                        const newVal = value.substring(0, selectionStart) + "/n" + value.substring(selectionEnd);
+                                                        updateEQ("question_text", newVal);
+                                                        setTimeout(() => {
+                                                            e.target.selectionStart = e.target.selectionEnd = selectionStart + 2;
+                                                        }, 0);
+                                                    }
+                                                }}
                                             />
                                             <div className="flex items-center gap-2">
                                                 <span className="text-xs font-bold text-gray-500 uppercase">Marks:</span>
@@ -406,7 +432,7 @@ function ExamDetailView({ exam, onBack, onSaved, questionPool }) {
                                                     <span className="w-6 h-6 rounded-full bg-purple-600 text-white text-[10px] font-black flex items-center justify-center flex-shrink-0">
                                                         {eq.question_order ?? idx + 1}
                                                     </span>
-                                                    <p className="font-bold text-gray-900 whitespace-pre-wrap">{q.question_text}</p>
+                                                    <p className="font-bold text-gray-900 whitespace-pre-wrap">{(q.question_text || "").replaceAll("/n", "\n")}</p>
                                                 </div>
                                                 {q.question_options && q.question_options.length > 0 && (
                                                     <div className="grid grid-cols-2 gap-2 pl-8">
@@ -474,7 +500,7 @@ function ExamDetailView({ exam, onBack, onSaved, questionPool }) {
                                     className={`p-4 rounded-2xl border cursor-pointer flex items-center justify-between gap-4 transition-all ${selectedPoolIds.includes(q.question_id) ? "bg-purple-600 border-purple-600 text-white" : "bg-white border-gray-100 hover:border-purple-200"}`}
                                 >
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-bold whitespace-pre-wrap">{q.question_text}</p>
+                                        <p className="font-bold whitespace-pre-wrap">{(q.question_text || "").replaceAll("/n", "\n")}</p>
                                         <p className={`text-[10px] uppercase font-bold tracking-widest ${selectedPoolIds.includes(q.question_id) ? "text-purple-200" : "text-gray-400"}`}>
                                             {q.marks ?? 1} Mark(s) &bull; {q.question_options?.length || 0} Options
                                         </p>
@@ -570,7 +596,7 @@ export default function CreateExam() {
         finally { setLoading(false); }
     };
 
-    const filteredPool = questionPool.filter(q => q.question_text.toLowerCase().includes(poolSearch.toLowerCase()));
+    const filteredPool = questionPool.filter(q => (q.question_text || "").replaceAll("/n", " ").toLowerCase().includes(poolSearch.toLowerCase()));
 
     // ── Detail View ──
     if (view === "detail" && selectedExam) {
@@ -765,7 +791,22 @@ export default function CreateExam() {
                             <Card key={qi} className="bg-white border-gray-100">
                                 <div className="flex justify-between items-start mb-6">
                                     <div className="flex-1 space-y-4">
-                                        <Textarea placeholder={`Question ${newQuestions.length - qi} text...`} value={q.question_text} onChange={(e) => updateNewQuestion(qi, "question_text", e.target.value)} />
+                                        <Textarea
+                                            placeholder={`Question ${newQuestions.length - qi} text...`}
+                                            value={(q.question_text || "").replaceAll("/n", "\n")}
+                                            onChange={(e) => updateNewQuestion(qi, "question_text", e.target.value.replaceAll("\n", "/n"))}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    const { selectionStart, selectionEnd, value } = e.target;
+                                                    const newVal = value.substring(0, selectionStart) + "/n" + value.substring(selectionEnd);
+                                                    updateNewQuestion(qi, "question_text", newVal);
+                                                    setTimeout(() => {
+                                                        e.target.selectionStart = e.target.selectionEnd = selectionStart + 2;
+                                                    }, 0);
+                                                }
+                                            }}
+                                        />
                                         <div className="flex items-center gap-2">
                                             <span className="text-xs font-bold text-gray-500 uppercase">Marks:</span>
                                             <input type="number" className="w-16 p-1 border rounded-lg text-sm font-bold text-center" value={q.marks} onChange={(e) => updateNewQuestion(qi, "marks", parseInt(e.target.value))} />
@@ -838,7 +879,7 @@ export default function CreateExam() {
                                     className={`p-4 rounded-2xl border cursor-pointer flex items-center justify-between gap-4 transition-all ${selectedPoolIds.includes(q.question_id) ? "bg-purple-600 border-purple-600 text-white" : "bg-white border-gray-100 hover:border-purple-200"}`}
                                 >
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-bold whitespace-pre-wrap">{q.question_text}</p>
+                                        <p className="font-bold whitespace-pre-wrap">{(q.question_text || "").replaceAll("/n", "\n")}</p>
                                         <p className={`text-[10px] uppercase font-bold tracking-widest ${selectedPoolIds.includes(q.question_id) ? "text-purple-200" : "text-gray-400"}`}>
                                             {q.marks ?? 1} Mark(s) &bull; {q.question_options?.length || 0} Options
                                         </p>
