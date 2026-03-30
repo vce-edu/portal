@@ -9,7 +9,7 @@ import { Card, CardHeader } from "../components/ui/Card";
 import Modal from "../components/ui/Modal";
 import { Input, Select } from "../components/ui/Input";
 import NoteTooltip from "../components/ui/NoteTooltip";
-import BatchTimePicker from "../components/ui/BatchTimePicker";
+import BatchTimePicker, { renderBatchTime } from "../components/ui/BatchTimePicker";
 import Badge from "../components/ui/Badge";
 import { Table, THead, TBody, TH, TD, TR } from "../components/ui/Table";
 
@@ -301,7 +301,7 @@ export default function Students() {
         phone_number: s.phoneNumber,
         addmission_date: s.admissionDate,
         branch: s.branch,
-        batch_time: s.batchTime,
+        batch_time: s.batchTime?.formatted || s.batchTime,
       };
     });
 
@@ -498,6 +498,7 @@ export default function Students() {
       .from(tableName)
       .update({
         ...editForm,
+        batch_time: editForm.batch_time?.formatted || editForm.batch_time,
         addmission_date: editForm.addmission_date,
       })
       .eq("roll_number", originalRoll);
@@ -1026,7 +1027,7 @@ export default function Students() {
                   <TD className="px-6">
                     <Badge variant="blue">{s.course}</Badge>
                   </TD>
-                  <TD className="text-gray-500 px-6">{s.batch_time || "-"}</TD>
+                  <TD className="text-gray-500 px-6">{renderBatchTime(s.batch_time)}</TD>
                   <TD className="px-6">
                     <div className="flex flex-wrap gap-1.5">
                       {showBreakStudents ? (
@@ -1161,7 +1162,7 @@ export default function Students() {
               <DetailRow label="Full Name" value={viewStudent.student_name} />
               <DetailRow label="Course" value={viewStudent.course} />
               <DetailRow label="Duration" value={viewStudent.duration} />
-              <DetailRow label="Batch Time" value={viewStudent.batch_time} />
+              <DetailRow label="Batch Time" value={renderBatchTime(viewStudent.batch_time)} />
               <DetailRow label="Monthly Fee" value={`₹${viewStudent.fee_month}`} />
               <DetailRow label="Admission" value={viewStudent.addmission_date} />
               <DetailRow label="Branch" value={viewStudent.branch} />

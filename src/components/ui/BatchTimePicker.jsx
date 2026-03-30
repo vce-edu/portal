@@ -30,6 +30,50 @@ const toH24 = (h12, period) => {
   return h === 12 ? 12 : h + 12;
 };
 
+// Format batch time object to string
+const formatBatchTime = (sH, sM, sP, eH, eM, eP) => {
+  if (!sH || !eH) return "";
+  return `${sH}:${sM} ${sP} To ${eH}:${eM} ${eP}`;
+};
+
+// Parse batch time string to object
+const parseBatchTime = (str) => {
+  if (!str || typeof str !== "string") return {};
+
+  // Legacy support: if it looks like JSON, try to parse it
+  if (str.trim().startsWith("{")) {
+    try {
+      return JSON.parse(str);
+    } catch (e) {
+      // fallback to normal parsing
+    }
+  }
+
+  // Handles "3:00 PM To 4:00 PM" or "03:00 PM - 04:00 PM"
+  const parts = str.split(/To|-/i);
+  if (parts.length !== 2) return {};
+
+  const parsePart = (p) => {
+    const m = p.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!m) return null;
+    return { h: m[1], m: m[2], p: m[3].toUpperCase() };
+  };
+
+  const start = parsePart(parts[0]);
+  const end = parsePart(parts[1]);
+
+  if (!start || !end) return {};
+  return { sH: start.h, sM: start.m, sP: start.p, eH: end.h, eM: end.m, eP: end.p };
+};
+
+// Helper to render batch time consistently
+const renderBatchTime = (val) => {
+  if (!val) return "-";
+  const obj = typeof val === "string" ? parseBatchTime(val) : val;
+  if (!obj.sH || !obj.eH) return typeof val === "string" ? val : "-";
+  return formatBatchTime(obj.sH, obj.sM, obj.sP, obj.eH, obj.eM, obj.eP);
+};
+
 // ── Single time input ─────────────────────────────────────────────────────────
 function TimeInput({ hVal, mVal, period, onCommit }) {
   const displayStr = hVal ? `${String(hVal).padStart(2,"0")}:${String(mVal||"00").padStart(2,"0")}` : "";
@@ -135,16 +179,18 @@ function TimeInput({ hVal, mVal, period, onCommit }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-// onChange({ startH24, endH24 }) — both numeric 24h or null
-export { toH24 };
+// onChange({ startH24, endH24, formatted, ...parts })
+export { toH24, formatBatchTime, parseBatchTime, renderBatchTime };
 export default function BatchTimePicker({ label = "Batch Time", value, onChange }) {
-  // value = { sH, sM, sP, eH, eM, eP } (raw strings for display)
-  const { sH = "", sM = "00", sP = "AM", eH = "", eM = "00", eP = "AM" } = value || {};
+  // If value is a string, parse it
+  const parsedValue = typeof value === "string" ? parseBatchTime(value) : (value || {});
+  const { sH = "", sM = "00", sP = "AM", eH = "", eM = "00", eP = "AM" } = parsedValue;
 
   const emit = (nsH, nsM, nsP, neH, neM, neP) => {
     const startH24 = nsH ? toH24(nsH, nsP) : null;
     const endH24   = neH ? toH24(neH, neP) : null;
-    onChange({ sH: nsH, sM: nsM, sP: nsP, eH: neH, eM: neM, eP: neP, startH24, endH24 });
+    const formatted = formatBatchTime(nsH, nsM, nsP, neH, neM, neP);
+    onChange({ sH: nsH, sM: nsM, sP: nsP, eH: neH, eM: neM, eP: neP, startH24, endH24, formatted });
   };
 
   return (

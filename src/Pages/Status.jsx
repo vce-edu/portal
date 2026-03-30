@@ -9,7 +9,7 @@ import { Card, CardHeader } from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import { Table, THead, TBody, TH, TD, TR } from "../components/ui/Table";
 import NoteTooltip from "../components/ui/NoteTooltip";
-import BatchTimePicker from "../components/ui/BatchTimePicker";
+import BatchTimePicker, { renderBatchTime } from "../components/ui/BatchTimePicker";
 
 export default function Status() {
   const today = new Date().toISOString().split("T")[0];
@@ -341,7 +341,7 @@ export default function Status() {
                     </span>
                   </TD>
                   <TD className="text-gray-500 hidden lg:table-cell">{r.father_name}</TD>
-                  <TD className="text-gray-500 hidden md:table-cell">{r.batch_time}</TD>
+                  <TD className="text-gray-500 hidden md:table-cell">{renderBatchTime(r.batch_time)}</TD>
                   <TD className="font-bold text-gray-400">₹{r.expected_amount}</TD>
                   <TD className="font-black text-purple-700">₹{r.paid_amount}</TD>
                   <TD>
