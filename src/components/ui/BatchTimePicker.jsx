@@ -126,6 +126,15 @@ function TimeInput({ hVal, mVal, period, onCommit }) {
 
   const handleBlur = () => { commit(raw); setOpen(false); };
 
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      commit(raw);
+      setOpen(false);
+    } else if (e.key === "Tab" || e.key === "Escape") {
+      setOpen(false);
+    }
+  };
+
   // Dropdown selection: e.preventDefault() keeps input focused so blur doesn't fire first
   const handleSelect = (slot) => {
     const fmt = `${String(slot.h12).padStart(2,"0")}:${String(slot.min).padStart(2,"0")}`;
@@ -147,6 +156,7 @@ function TimeInput({ hVal, mVal, period, onCommit }) {
           onChange={(e) => { setRaw(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
           onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
           className="w-[68px] border border-gray-200 rounded-lg px-2 py-2 text-sm font-mono text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-purple-400 transition text-center"
         />
         {open && (
@@ -155,6 +165,7 @@ function TimeInput({ hVal, mVal, period, onCommit }) {
               <button
                 key={i}
                 type="button"
+                tabIndex="-1"
                 // e.preventDefault() prevents the input from blurring before handleSelect runs
                 onMouseDown={(e) => { e.preventDefault(); handleSelect(s); }}
                 className="w-full text-left px-3 py-2 text-sm hover:bg-purple-50 hover:text-purple-700 font-mono transition-colors"

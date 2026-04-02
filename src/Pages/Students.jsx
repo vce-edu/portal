@@ -1090,6 +1090,8 @@ export default function Students() {
             <Input label="Fee/Month" value={editForm.fee_month} onChange={(e) => setEditForm({ ...editForm, fee_month: e.target.value })} />
           </div>
 
+          <Input label="Phone Number" value={editForm.phone_number} onChange={(e) => setEditForm({ ...editForm, phone_number: e.target.value })} />
+
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold text-gray-500 ml-1 uppercase tracking-wider">Admission Date</label>
             <DatePicker

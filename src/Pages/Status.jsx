@@ -117,17 +117,23 @@ export default function Status() {
 
       const rows = data || [];
 
-      // Supplement with notes from students table
+      // Supplement with notes and admission date from students table
       if (rows.length > 0) {
         const rolls = rows.map((r) => r.roll_number);
-        const { data: noteData } = await supabase
+        const { data: studentInfo } = await supabase
           .from("students")
-          .select("roll_number, notes")
+          .select("roll_number, notes, addmission_date")
           .in("roll_number", rolls);
 
-        const notesMap = {};
-        (noteData || []).forEach((n) => { notesMap[n.roll_number] = n.notes; });
-        setRows(rows.map((r) => ({ ...r, notes: notesMap[r.roll_number] || null })));
+        const infoMap = {};
+        (studentInfo || []).forEach((s) => {
+          infoMap[s.roll_number] = { notes: s.notes, addmission_date: s.addmission_date };
+        });
+        setRows(rows.map((r) => ({
+          ...r,
+          notes: infoMap[r.roll_number]?.notes || null,
+          addmission_date: infoMap[r.roll_number]?.addmission_date || null
+        })));
       } else {
         setRows([]);
       }
@@ -306,6 +312,7 @@ export default function Status() {
                 <TH>Name</TH>
                 <TH className="hidden lg:table-cell">Father's Name</TH>
                 <TH className="hidden md:table-cell">Batch</TH>
+                <TH className="hidden xl:table-cell">Admission Date</TH>
                 <TH>Expect</TH>
                 <TH>Paid</TH>
                 <TH>Status</TH>
@@ -342,6 +349,7 @@ export default function Status() {
                   </TD>
                   <TD className="text-gray-500 hidden lg:table-cell">{r.father_name}</TD>
                   <TD className="text-gray-500 hidden md:table-cell">{renderBatchTime(r.batch_time)}</TD>
+                  <TD className="text-gray-500 hidden xl:table-cell">{r.addmission_date || "-"}</TD>
                   <TD className="font-bold text-gray-400">₹{r.expected_amount}</TD>
                   <TD className="font-black text-purple-700">₹{r.paid_amount}</TD>
                   <TD>
