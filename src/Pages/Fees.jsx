@@ -8,6 +8,7 @@ import { Input } from "../components/ui/Input";
 import { Card } from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import { Table, THead, TBody, TH, TD, TR } from "../components/ui/Table";
+import { renderBatchTime } from "../components/ui/BatchTimePicker";
 
 const HISTORY_PAGE_LIMIT = 20;
 
@@ -31,6 +32,8 @@ export default function Fees() {
     roll: "",
     student: "",
     father: "",
+    course: "",
+    batchTime: "",
     amount: "",
     receipt: "",
     paidOn: today, // we keep your date handling untouched
@@ -116,6 +119,8 @@ export default function Fees() {
         ...prev,
         student: "",
         father: "",
+        course: "",
+        batchTime: "",
         amount: "",
         receipt: "",
       }));
@@ -126,7 +131,7 @@ export default function Fees() {
     try {
       const { data, error } = await supabase
         .from("students")
-        .select("student_name, father_name, fee_month")
+        .select("student_name, father_name, fee_month, course, batch_time")
         .eq("roll_number", roll)
         .limit(1)
         .single();
@@ -137,6 +142,8 @@ export default function Fees() {
           ...prev,
           student: "",
           father: "",
+          course: "",
+          batchTime: "",
           amount: "",
           receipt: "",
         }));
@@ -145,6 +152,8 @@ export default function Fees() {
           ...prev,
           student: data.student_name,
           father: data.father_name,
+          course: data.course,
+          batchTime: renderBatchTime(data.batch_time),
           amount: data.fee_month ?? prev.amount,
           receipt: "",
         }));
@@ -224,6 +233,8 @@ export default function Fees() {
         roll: "",
         student: "",
         father: "",
+        course: "",
+        batchTime: "",
         amount: "",
         receipt: "",
         paidOn: today,
@@ -368,6 +379,23 @@ export default function Fees() {
             placeholder={loadingStudent ? "Searching..." : "Auto-filled"}
             className={loadingStudent ? "animate-pulse" : ""}
           />
+
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Course"
+              value={form.course}
+              readOnly
+              placeholder={loadingStudent ? "Searching..." : "Auto-filled"}
+              className={loadingStudent ? "animate-pulse" : ""}
+            />
+            <Input
+              label="Batch Time"
+              value={form.batchTime}
+              readOnly
+              placeholder={loadingStudent ? "Searching..." : "Auto-filled"}
+              className={loadingStudent ? "animate-pulse" : ""}
+            />
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <Input

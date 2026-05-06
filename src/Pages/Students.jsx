@@ -36,6 +36,7 @@ export default function Students() {
       admissionDate: "",
       branch: branch?.toLowerCase() === "all" ? "main" : branch,
       batchTime: "",
+      address: "",
     },
   ]);
 
@@ -64,6 +65,7 @@ export default function Students() {
     addmission_date: "",
     branch: "",
     batch_time: "",
+    address: "",
   });
   const [originalRoll, setOriginalRoll] = useState(null);
   const [showBreakStudents, setShowBreakStudents] = useState(false);
@@ -165,6 +167,7 @@ export default function Students() {
         admissionDate: "",
         branch: branch?.toLowerCase() === "all" ? "main" : branch,
         batchTime: "",
+        address: "",
       },
     ]);
   };
@@ -302,6 +305,7 @@ export default function Students() {
         addmission_date: s.admissionDate,
         branch: s.branch,
         batch_time: s.batchTime?.formatted || s.batchTime,
+        address: s.address || "",
       };
     });
 
@@ -329,6 +333,7 @@ export default function Students() {
         admissionDate: "",
         branch: branch?.toLowerCase() === "all" ? "main" : branch,
         batchTime: "",
+        address: "",
       },
     ]);
 
@@ -685,6 +690,7 @@ export default function Students() {
       addmission_date: student.addmission_date,
       branch: student.branch,
       batch_time: student.batch_time,
+      address: student.address || "",
     });
 
     setEditStudent(student);
@@ -855,6 +861,7 @@ export default function Students() {
                     <Input label="Duration" value={s.duration} onChange={(e) => handleChange(index, "duration", e.target.value)} />
                     <Input label="Fee/Month" value={s.feeMonth} onChange={(e) => handleChange(index, "feeMonth", e.target.value)} />
                     <Input label="Phone Number" value={s.phoneNumber} onChange={(e) => handleChange(index, "phoneNumber", e.target.value)} />
+                    <Input label="Address" value={s.address} onChange={(e) => handleChange(index, "address", e.target.value)} />
 
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-bold text-gray-500 ml-1 uppercase tracking-wider">Admission Date</label>
@@ -1091,6 +1098,7 @@ export default function Students() {
           </div>
 
           <Input label="Phone Number" value={editForm.phone_number} onChange={(e) => setEditForm({ ...editForm, phone_number: e.target.value })} />
+          <Input label="Address" value={editForm.address || ""} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} />
 
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold text-gray-500 ml-1 uppercase tracking-wider">Admission Date</label>
@@ -1171,6 +1179,7 @@ export default function Students() {
               <DetailRow label="Father Name" value={viewStudent.father_name} />
               <DetailRow label="Mother Name" value={viewStudent.mother_name} />
               <DetailRow label="Phone" value={viewStudent.phone_number} />
+              <DetailRow label="Address" value={viewStudent.address} />
             </div>
             <Button variant="secondary" className="w-full mt-4" onClick={() => setViewStudent(null)}>Close</Button>
           </div>

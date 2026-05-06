@@ -371,31 +371,33 @@ export default function Branches() {
                     </div>
                     <div className="space-y-2">
                       {groupedData[branchName].manager.map((u) => (
-                        <div key={u.id} className="flex items-center gap-3 p-3 bg-blue-50/30 rounded-2xl border border-blue-50/50 group/item hover:bg-blue-50 transition-colors">
-                          <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                          <p className="text-sm font-bold text-gray-700 truncate flex-1">{u.display_name || u.email}</p>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            className="opacity-0 group-hover/item:opacity-100 bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all border-none shadow-none"
-                            onClick={() => {
-                              setSelectedUser(u);
-                              setTransferOpen(true);
-                            }}
-                          >
-                            Transfer
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            className="opacity-0 group-hover/item:opacity-100 transition-all border-none font-bold"
-                            onClick={() => {
-                              setUserToDelete(u);
-                              setDeleteOpen(true);
-                            }}
-                          >
-                            Delete
-                          </Button>
+                        <div key={u.id} className="flex items-center gap-3 p-3 bg-blue-50/30 rounded-2xl border border-blue-100/50 group/item hover:bg-blue-50 transition-colors">
+                          <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-sm shadow-blue-200"></div>
+                          <p className="text-sm font-black text-gray-900 truncate flex-1">{u.display_name || u.email}</p>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="opacity-0 group-hover/item:opacity-100 bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all border-none shadow-none px-2"
+                              onClick={() => {
+                                setSelectedUser(u);
+                                setTransferOpen(true);
+                              }}
+                            >
+                              Transfer
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              className="opacity-0 group-hover/item:opacity-100 transition-all border-none font-bold px-2"
+                              onClick={() => {
+                                setUserToDelete(u);
+                                setDeleteOpen(true);
+                              }}
+                            >
+                              Del
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -413,34 +415,33 @@ export default function Branches() {
                     </div>
                     <div className="grid grid-cols-1 gap-2">
                       {groupedData[branchName].staff.map((u) => (
-                        <div key={u.id} className="flex items-center gap-3 p-3 bg-gray-50/50 rounded-2xl border border-transparent hover:border-purple-100 hover:bg-white transition-all group/item">
-                          <p className="text-xs font-bold text-gray-500 truncate flex-1 italic">{u.display_name || u.email}</p>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            className="opacity-0 group-hover/item:opacity-100 bg-purple-50 text-purple-600 hover:bg-purple-100 transition-all border-none shadow-none"
-                            onClick={() => {
-                              setSelectedUser(u);
-                              setTransferOpen(true);
-                            }}
-                          >
-                            Transfer
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            className="opacity-0 group-hover/item:opacity-100 transition-all border-none font-bold"
-                            onClick={() => {
-                              setUserToDelete(u);
-                              setDeleteOpen(true);
-                            }}
-                          >
-                            Delete
-                          </Button>
-                          <svg className="w-4 h-4 text-purple-200 group-hover/item:hidden" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                            <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-                          </svg>
+                        <div key={u.id} className="flex items-center gap-3 p-3 bg-purple-50/20 rounded-2xl border border-purple-50 hover:border-purple-100 hover:bg-white transition-all group/item">
+                          <div className="w-1.5 h-1.5 rounded-full bg-purple-400"></div>
+                          <p className="text-sm font-black text-gray-800 truncate flex-1 uppercase tracking-tight">{u.display_name || u.email}</p>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="opacity-0 group-hover/item:opacity-100 bg-purple-50 text-purple-600 hover:bg-purple-100 transition-all border-none shadow-none px-2"
+                              onClick={() => {
+                                setSelectedUser(u);
+                                setTransferOpen(true);
+                              }}
+                            >
+                              Transfer
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              className="opacity-0 group-hover/item:opacity-100 transition-all border-none font-bold px-2"
+                              onClick={() => {
+                                setUserToDelete(u);
+                                setDeleteOpen(true);
+                              }}
+                            >
+                              Del
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>
