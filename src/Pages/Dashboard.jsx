@@ -9,9 +9,6 @@ import StaffDashboard from "./StaffDashboard";
 export default function Dashboard() {
   const { user, branch, role } = useAuth();
 
-  if (role === "staff") {
-    return <StaffDashboard />;
-  }
   const name = user?.user_metadata?.display_name || "User";
   const userBranch = branch || "all";
 
@@ -145,6 +142,10 @@ export default function Dashboard() {
     fetchBranchWiseRevenue,
     fetchActiveBranches,
   ]);
+
+  if (role === "staff") {
+    return <StaffDashboard />;
+  }
 
   return (
     <div className="p-2 sm:p-4 md:p-10 space-y-6 md:space-y-12">

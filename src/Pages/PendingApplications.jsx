@@ -152,7 +152,7 @@ export default function PendingApplications() {
             setScholarshipMigrationOpen(false);
             setConfirmingItem(null);
             fetchPendingData();
-            alert(`Succesfully moved to ${migrationType === 'scholarship' ? 'Scholarship Pool' : 'Main Students'}`);
+            alert(`Succesfully moved to ${migrationType === 'scholarship' ? 'Scholarship' : 'Main Students'}`);
         } catch (error) {
             console.error("Migration error:", error);
             alert("Error during migration: " + error.message);
@@ -622,7 +622,7 @@ export default function PendingApplications() {
                                 className="p-6 bg-purple-50 hover:bg-purple-100 rounded-3xl border-2 border-dashed border-purple-200 text-center transition-all group"
                             >
                                 <span className="text-4xl mb-3 block group-hover:scale-110 transition-transform">🏆</span>
-                                <h3 className="font-black text-purple-900">Scholarship Pool</h3>
+                                <h3 className="font-black text-purple-900">Scholarship</h3>
                                 <p className="text-[10px] font-bold text-purple-400 uppercase mt-1">Move to scholarship_students table</p>
                             </button>
                             <button
@@ -642,7 +642,7 @@ export default function PendingApplications() {
                                 </button>
                                 <h3 className="font-black text-gray-900">
                                     Moving to <span className={migrationType === 'scholarship' ? 'text-purple-600' : 'text-emerald-600'}>
-                                        {migrationType === 'scholarship' ? 'Scholarship Pool' : 'Main Students'}
+                                        {migrationType === 'scholarship' ? 'Scholarship' : 'Main Students'}
                                     </span>
                                 </h3>
                             </div>

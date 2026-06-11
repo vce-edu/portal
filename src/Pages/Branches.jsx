@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { supabase, signupSupabase } from "../createClient";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
@@ -58,59 +58,59 @@ export default function Branches() {
     setUserToDelete(null);
   };
 
-  useEffect(() => {
-    const loadBranches = async () => {
-      const { data, error } = await supabase
-        .from("users")
-        .select("branch");
+  const loadBranches = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("users")
+      .select("branch");
 
-      if (!error && data) {
-        const uniqueBranches = [...new Set(data.map(item => item.branch))].filter(Boolean);
-        setBranchList(uniqueBranches);
+    if (!error && data) {
+      const uniqueBranches = [...new Set(data.map(item => item.branch))].filter(Boolean);
+      setBranchList(uniqueBranches);
+    }
+  }, []);
+
+  const loadUsers = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("users")
+      .select("id, role, branch, email, display_name, user_id");
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    // --- Group Data ---
+    let groups = {};
+
+    data.forEach((user) => {
+      const branchName = user.branch || "Unknown";
+
+      if (!groups[branchName]) {
+        groups[branchName] = {
+          manager: [],
+          staff: [],
+          owner: [],
+          total: 0
+        };
       }
-    };
 
+      if (user.role === "manager") groups[branchName].manager.push(user);
+      if (user.role === "staff") groups[branchName].staff.push(user);
+      if (user.role === "owner") groups[branchName].owner.push(user);
+      groups[branchName].total++;
+    });
+
+    setGroupedData(groups);
+    setFacultyList(data);
+  }, []);
+
+  useEffect(() => {
     loadBranches();
-  }, []);
+  }, [loadBranches]);
 
   useEffect(() => {
-    const loadUsers = async () => {
-      const { data, error } = await supabase
-        .from("users")
-        .select("id, role, branch, email, display_name, user_id");
-
-      if (error) {
-        console.error(error);
-        return;
-      }
-
-      // --- Group Data ---
-      let groups = {};
-
-      data.forEach((user) => {
-        const branchName = user.branch || "Unknown";
-
-        if (!groups[branchName]) {
-          groups[branchName] = {
-            manager: [],
-            staff: [],
-            owner: [],
-            total: 0
-          };
-        }
-
-        if (user.role === "manager") groups[branchName].manager.push(user);
-        if (user.role === "staff") groups[branchName].staff.push(user);
-        if (user.role === "owner") groups[branchName].owner.push(user);
-        groups[branchName].total++;
-      });
-
-      setGroupedData(groups);
-      setFacultyList(data);
-    };
-
     loadUsers();
-  }, []);
+  }, [loadUsers]);
 
   // ESC to close
   useEffect(() => {
@@ -176,7 +176,8 @@ export default function Branches() {
 
     alert(`User provisioned successfully!\nGenerated Password: ${generatedPassword}`);
     closeModal();
-    window.location.reload();
+    loadUsers();
+    loadBranches();
   };
 
   // ===================== TRANSFER =====================
@@ -202,7 +203,8 @@ export default function Branches() {
 
     alert("User transferred successfully!");
     closeModal();
-    window.location.reload();
+    loadUsers();
+    loadBranches();
   };
 
   // ===================== DELETE =====================
@@ -217,8 +219,6 @@ export default function Branches() {
       user_id_to_delete: userToDelete.id,
     });
 
-    setLoading(true);
-
     if (error) {
       alert(error.message);
       setLoading(false);
@@ -228,7 +228,8 @@ export default function Branches() {
     setLoading(false);
     alert("User deleted permanently.");
     closeModal();
-    window.location.reload();
+    loadUsers();
+    loadBranches();
   };
 
   return (
@@ -736,7 +737,9 @@ export default function Branches() {
                   }
 
                   alert("Operational node & controller initialized.");
-                  window.location.reload();
+                  setBranchOpen(false);
+                  loadUsers();
+                  loadBranches();
                 }}
               >
                 Provision Infrastructure
