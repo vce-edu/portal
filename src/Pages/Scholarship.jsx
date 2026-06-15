@@ -80,6 +80,7 @@ export default function Scholarship() {
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedBranch, setSelectedBranch] = useState("all");
     const [branches, setBranches] = useState([]);
+    const [defaultTimeSlot, setDefaultTimeSlot] = useState("09:00");
     
     // Add record card state
     const [open, setOpen] = useState(false);
@@ -113,6 +114,7 @@ export default function Scholarship() {
     const editTimeoutRef = useRef(null);
 
     const [showOnlyPresent, setShowOnlyPresent] = useState(false);
+    const [showOnlyOk, setShowOnlyOk] = useState(false);
     const [markingPresent, setMarkingPresent] = useState({});
     const [markingOk, setMarkingOk] = useState({});
     const [localScores, setLocalScores] = useState({});
@@ -223,7 +225,7 @@ export default function Scholarship() {
         return branch.toLowerCase();
     };
 
-    const createInitialStudentRow = (rollNumber = "") => ({
+    const createInitialStudentRow = (rollNumber = "", defaultTime = defaultTimeSlot) => ({
         rollNumber,
         studentName: "",
         fatherName: "",
@@ -233,7 +235,7 @@ export default function Scholarship() {
         address: "",
         branch: getInitialBranch(),
         date: "2026-06-21",
-        time: new Date().toTimeString().split(" ")[0].slice(0, 5),
+        time: defaultTime,
         photo: null,
     });
 
@@ -247,13 +249,14 @@ export default function Scholarship() {
         fetchBranches();
     }, []);
 
-    // Set initial student row when add card is opened — autofill roll number
+    // Set initial student row when add card is opened — autofill roll number and fetch slot time
     useEffect(() => {
         if (!open) return;
         if (students.length > 0) return;
 
-        const fetchNextRollNumber = async () => {
+        const fetchNextRollNumberAndSlot = async () => {
             try {
+                // Fetch next roll number
                 const { data: rows } = await supabase
                     .from("scholarship_students")
                     .select("roll_number")
@@ -263,14 +266,27 @@ export default function Scholarship() {
                 const max = rows?.[0]?.roll_number;
                 const nextRoll = max ? parseInt(max, 10) + 1 : 5100;
 
-                setStudents([createInitialStudentRow(String(nextRoll))]);
+                // Fetch available slot hour via RPC
+                let hourSlot = 9;
+                try {
+                    const { data: slotHour, error: slotErr } = await supabase.rpc("get_available_slot");
+                    if (!slotErr && slotHour !== null) {
+                        hourSlot = slotHour;
+                    }
+                } catch (slotErr) {
+                    console.error("Failed to fetch available slot:", slotErr);
+                }
+
+                const timeStr = `${String(hourSlot).padStart(2, "0")}:00`;
+                setDefaultTimeSlot(timeStr);
+                setStudents([createInitialStudentRow(String(nextRoll), timeStr)]);
             } catch (err) {
-                console.error("Failed to fetch next roll number:", err);
-                setStudents([createInitialStudentRow("5100")]);
+                console.error("Failed to fetch next roll number and slot:", err);
+                setStudents([createInitialStudentRow("5100", "09:00")]);
             }
         };
 
-        fetchNextRollNumber();
+        fetchNextRollNumberAndSlot();
     }, [open]);
 
     // Esc key handler to close forms/modals
@@ -307,11 +323,24 @@ export default function Scholarship() {
             }
 
             if (searchQuery.trim()) {
-                query = query.or(`roll_number.ilike.%${searchQuery}%,student_name.ilike.%${searchQuery}%,father_name.ilike.%${searchQuery}%`);
+                const term = searchQuery.trim();
+                let orConditions = `roll_number.ilike.%${term}%,student_name.ilike.%${term}%,father_name.ilike.%${term}%`;
+                
+                // Allow searching via staff_id
+                const cleanNum = term.replace(/^#/, "");
+                const parsedInt = parseInt(cleanNum, 10);
+                if (!isNaN(parsedInt) && /^\d+$/.test(cleanNum)) {
+                    orConditions += `,staff_id.eq.${parsedInt}`;
+                }
+                query = query.or(orConditions);
             }
 
             if (showOnlyPresent) {
                 query = query.eq("present", true);
+            }
+
+            if (showOnlyOk) {
+                query = query.eq("ok", true);
             }
 
             const { data: response, count, error } = await query;
@@ -324,7 +353,7 @@ export default function Scholarship() {
         } finally {
             setLoading(false);
         }
-    }, [page, selectedBranch, branch, searchQuery, showOnlyPresent, role, staffId]);
+    }, [page, selectedBranch, branch, searchQuery, showOnlyPresent, showOnlyOk, role, staffId]);
 
     // Debounced search trigger
     useEffect(() => {
@@ -686,7 +715,7 @@ export default function Scholarship() {
                         )}
                     />
                 </div>
-                <div className="flex items-center justify-start md:justify-center gap-3">
+                <div className="flex flex-col gap-2 justify-center">
                     <label className="flex items-center gap-3 cursor-pointer select-none">
                         <input
                             type="checkbox"
@@ -696,6 +725,17 @@ export default function Scholarship() {
                         />
                         <span className="text-xs font-black text-purple-950 uppercase tracking-wider">
                             Only Present Students
+                        </span>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer select-none">
+                        <input
+                            type="checkbox"
+                            checked={showOnlyOk}
+                            onChange={(e) => setShowOnlyOk(e.target.checked)}
+                            className="w-5 h-5 rounded-lg border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                        />
+                        <span className="text-xs font-black text-purple-950 uppercase tracking-wider">
+                            Only OK Students
                         </span>
                     </label>
                 </div>
