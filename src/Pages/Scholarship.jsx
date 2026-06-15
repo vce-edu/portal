@@ -105,11 +105,16 @@ export default function Scholarship() {
         time: "",
         present: "false",
         staff_id: null,
+        photo: null,
+        ok: false,
     });
     const [originalRoll, setOriginalRoll] = useState(null);
+    const [editRollError, setEditRollError] = useState("");
+    const editTimeoutRef = useRef(null);
 
     const [showOnlyPresent, setShowOnlyPresent] = useState(false);
     const [markingPresent, setMarkingPresent] = useState({});
+    const [markingOk, setMarkingOk] = useState({});
     const [localScores, setLocalScores] = useState({});
     const saveTimeoutRef = useRef({});
 
@@ -141,6 +146,30 @@ export default function Scholarship() {
             alert("Error: " + err.message);
         } finally {
             setMarkingPresent(prev => ({ ...prev, [rollNumber]: false }));
+        }
+    };
+
+    const handleMarkOk = async (rollNumber, currentOkStatus) => {
+        setMarkingOk(prev => ({ ...prev, [rollNumber]: true }));
+        try {
+            const nextOk = !currentOkStatus;
+            const { error } = await supabase
+                .from("scholarship_students")
+                .update({ ok: nextOk })
+                .eq("roll_number", rollNumber);
+
+            if (error) throw error;
+
+            setData(prev =>
+                prev.map(student =>
+                    student.roll_number === rollNumber ? { ...student, ok: nextOk } : student
+                )
+            );
+        } catch (err) {
+            console.error("Error updating OK status:", err);
+            alert("Error: " + err.message);
+        } finally {
+            setMarkingOk(prev => ({ ...prev, [rollNumber]: false }));
         }
     };
 
@@ -203,7 +232,7 @@ export default function Scholarship() {
         phoneNumber: "",
         address: "",
         branch: getInitialBranch(),
-        date: new Date().toISOString().split("T")[0],
+        date: "2026-06-21",
         time: new Date().toTimeString().split(" ")[0].slice(0, 5),
         photo: null,
     });
@@ -475,6 +504,7 @@ export default function Scholarship() {
 
     const openUpdateModal = (student) => {
         setOriginalRoll(student.roll_number);
+        setEditRollError("");
         setEditForm({
             roll_number: student.roll_number,
             student_name: student.student_name,
@@ -488,13 +518,98 @@ export default function Scholarship() {
             time: student.time ? student.time.slice(0, 5) : "",
             present: student.present ? "true" : "false",
             staff_id: student.staff_id,
+            photo: null,
+            ok: student.ok || false,
         });
         setEditStudent(student);
     };
 
+    const handleEditRollChange = (val) => {
+        setEditForm(prev => ({ ...prev, roll_number: val }));
+        
+        if (editTimeoutRef.current) {
+            clearTimeout(editTimeoutRef.current);
+        }
+        
+        editTimeoutRef.current = setTimeout(async () => {
+            const trimmed = val.trim();
+            if (!trimmed) {
+                setEditRollError("");
+                return;
+            }
+            if (trimmed === originalRoll.trim()) {
+                setEditRollError("");
+                return;
+            }
+            try {
+                const { data: duplicateData } = await supabase
+                    .from("scholarship_students")
+                    .select("roll_number")
+                    .eq("roll_number", trimmed)
+                    .maybeSingle();
+
+                if (duplicateData) {
+                    setEditRollError("Already exists in database");
+                } else {
+                    setEditRollError("");
+                }
+            } catch (err) {
+                console.error("Duplicate check error:", err);
+            }
+        }, 500);
+    };
+
     const handleUpdate = async () => {
+        if (editRollError) {
+            alert("Please resolve the roll number error before updating.");
+            return;
+        }
+
         setLoading(true);
         try {
+            // Double-check duplicate roll number in database if changed
+            if (editForm.roll_number.trim() !== originalRoll.trim()) {
+                const { data: existing } = await supabase
+                    .from("scholarship_students")
+                    .select("roll_number")
+                    .eq("roll_number", editForm.roll_number.trim())
+                    .maybeSingle();
+                if (existing) {
+                    alert("Roll number already exists in database!");
+                    setLoading(false);
+                    return;
+                }
+            }
+
+            if (editForm.photo) {
+                if (!editForm.photo.type.startsWith("image/")) {
+                    throw new Error("File selected is not a valid image.");
+                }
+                if (editForm.photo.size > 10 * 1024 * 1024) {
+                    throw new Error("Photo exceeds the maximum size limit of 10MB.");
+                }
+
+                let fileToUpload = editForm.photo;
+                try {
+                    fileToUpload = await compressImage(editForm.photo, 0.7, 1024, 1024);
+                } catch (compressErr) {
+                    console.error("Compression failed, using original photo:", compressErr);
+                }
+
+                const fileExt = fileToUpload.name.split('.').pop();
+                const fileName = `${editForm.roll_number.trim()}_${editForm.student_name.trim()}.${fileExt}`;
+                
+                const { error: uploadError } = await secSupabase.storage
+                    .from("student-photos")
+                    .upload(fileName, fileToUpload, {
+                        upsert: true,
+                    });
+                
+                if (uploadError) {
+                    throw new Error(`Failed to upload photo: ${uploadError.message}`);
+                }
+            }
+
             const { error } = await supabase
                 .from("scholarship_students")
                 .update({
@@ -509,6 +624,7 @@ export default function Scholarship() {
                     date: editForm.date,
                     time: editForm.time ? `${editForm.time}:00` : null,
                     present: editForm.present === "true",
+                    ok: editForm.ok,
                 })
                 .eq("roll_number", originalRoll);
 
@@ -780,7 +896,14 @@ export default function Scholarship() {
                                             </span>
                                         </TD>
                                         <TD className="py-5 font-black text-gray-900 group-hover:text-emerald-700 transition-colors">
-                                            {student.student_name}
+                                            <div className="flex items-center gap-2">
+                                                {student.ok && (
+                                                    <svg className="w-5 h-5 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" title="Verified OK">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                )}
+                                                <span>{student.student_name}</span>
+                                            </div>
                                         </TD>
                                         <TD className="py-5">
                                             <div className="flex flex-col text-xs">
@@ -817,6 +940,19 @@ export default function Scholarship() {
                                         </TD>
                                         <TD className="py-5 text-right pr-6">
                                             <div className="flex justify-end items-center gap-1.5">
+                                                <Button
+                                                    size="sm"
+                                                    variant={student.ok ? "secondary" : "primary"}
+                                                    disabled={markingOk[student.roll_number]}
+                                                    onClick={() => handleMarkOk(student.roll_number, student.ok)}
+                                                    className={`${
+                                                        student.ok
+                                                            ? "bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200"
+                                                            : "bg-blue-600 hover:bg-blue-700 text-white"
+                                                    } font-bold py-1.5 px-3 rounded-lg text-xs`}
+                                                >
+                                                    {markingOk[student.roll_number] ? "Saving..." : student.ok ? "OK ✓" : "OK"}
+                                                </Button>
                                                 <Button
                                                     size="sm"
                                                     variant="primary"
@@ -920,20 +1056,21 @@ export default function Scholarship() {
                 {viewStudent && (
                     <div className="space-y-4">
                         <div className="grid grid-cols-1 gap-3">
-                            <DetailRow label="Roll Number" value={viewStudent.roll_number} />
-                            <DetailRow label="Full Name" value={viewStudent.student_name} />
-                            <DetailRow label="Father Name" value={viewStudent.father_name} />
-                            <DetailRow label="Mother Name" value={viewStudent.mother_name} />
-                            <DetailRow label="Gender" value={viewStudent.gender} />
-                            <DetailRow label="Phone Number" value={viewStudent.phone_number} />
-                            <DetailRow label="Address" value={viewStudent.address} />
-                            <DetailRow label="Branch" value={viewStudent.branch} />
-                            <DetailRow label="Staff ID" value={viewStudent.staff_id !== null ? `#${viewStudent.staff_id}` : "—"} />
-                            <DetailRow label="Date" value={viewStudent.date} />
-                            <DetailRow label="Time" value={viewStudent.time ? viewStudent.time.slice(0, 5) : "-"} />
-                            {viewStudent.score !== null && <DetailRow label="Score" value={viewStudent.score} />}
-                            <DetailRow label="Present Status" value={viewStudent.present ? "True" : "False"} />
-                        </div>
+                                                            <DetailRow label="Roll Number" value={viewStudent.roll_number} />
+                                                            <DetailRow label="Full Name" value={viewStudent.student_name} />
+                                                            <DetailRow label="Father Name" value={viewStudent.father_name} />
+                                                            <DetailRow label="Mother Name" value={viewStudent.mother_name} />
+                                                            <DetailRow label="Gender" value={viewStudent.gender} />
+                                                            <DetailRow label="Phone Number" value={viewStudent.phone_number} />
+                                                            <DetailRow label="Address" value={viewStudent.address} />
+                                                            <DetailRow label="Branch" value={viewStudent.branch} />
+                                                            <DetailRow label="Staff ID" value={viewStudent.staff_id !== null ? `#${viewStudent.staff_id}` : "—"} />
+                                                            <DetailRow label="Date" value={viewStudent.date} />
+                                                            <DetailRow label="Time" value={viewStudent.time ? viewStudent.time.slice(0, 5) : "-"} />
+                                                            {viewStudent.score !== null && <DetailRow label="Score" value={viewStudent.score} />}
+                                                            <DetailRow label="Present Status" value={viewStudent.present ? "True" : "False"} />
+                                                            <DetailRow label="OK Status" value={viewStudent.ok ? "True" : "False"} />
+                                                        </div>
                         <Button variant="secondary" className="w-full mt-4" onClick={() => setViewStudent(null)}>Close</Button>
                     </div>
                 )}
@@ -955,8 +1092,9 @@ export default function Scholarship() {
                     <Input
                         label="Roll Number"
                         value={editForm.roll_number}
-                        onChange={(e) => setEditForm({ ...editForm, roll_number: e.target.value })}
+                        onChange={(e) => handleEditRollChange(e.target.value)}
                         required
+                        error={editRollError}
                     />
                     <Input
                         label="Full Name"
@@ -1025,6 +1163,22 @@ export default function Scholarship() {
                         label="Present Status"
                         value={editForm.present}
                         onChange={(e) => setEditForm({ ...editForm, present: e.target.value })}
+                        options={[
+                            { value: "true", label: "True" },
+                            { value: "false", label: "False" }
+                        ]}
+                        required
+                    />
+                    <Input
+                        label="Student Photo"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setEditForm({ ...editForm, photo: e.target.files?.[0] || null })}
+                    />
+                    <Select
+                        label="OK Status"
+                        value={editForm.ok ? "true" : "false"}
+                        onChange={(e) => setEditForm({ ...editForm, ok: e.target.value === "true" })}
                         options={[
                             { value: "true", label: "True" },
                             { value: "false", label: "False" }
