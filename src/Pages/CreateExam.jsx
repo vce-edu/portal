@@ -7,6 +7,15 @@ import { Input, Textarea } from "../components/ui/Input";
 import Modal from "../components/ui/Modal";
 import { useAuth } from "../context/AuthContext";
 
+// ─── Helper Functions ────────────────────────────────────────────────────────
+const formatForDateTimeLocal = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "";
+    const tzOffset = date.getTimezoneOffset() * 60000;
+    return new Date(date.getTime() - tzOffset).toISOString().slice(0, 16);
+};
+
 // ─── Exam Detail / Edit View ─────────────────────────────────────────────────
 function ExamDetailView({ exam, onBack, onSaved, questionPool }) {
     const [editMode, setEditMode] = useState(false);
@@ -28,6 +37,11 @@ function ExamDetailView({ exam, onBack, onSaved, questionPool }) {
     const [editingQuestion, setEditingQuestion] = useState(null); // { question_id, question_text, marks, options: [{option_id, option_text, is_correct}] }
     const [savingQuestion, setSavingQuestion] = useState(false);
 
+    useEffect(() => {
+        setForm({ ...exam });
+    }, [exam]);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => { fetchLinkedQuestions(); }, [exam.exam_id]);
 
     const fetchLinkedQuestions = async () => {
@@ -54,6 +68,7 @@ function ExamDetailView({ exam, onBack, onSaved, questionPool }) {
                 total_score: Number(form.total_score),
                 total_questions: Number(form.total_questions),
                 restricted: form.restricted,
+                operational_time: form.operational_time ? new Date(form.operational_time).toISOString() : null,
             }).eq("exam_id", exam.exam_id);
             if (error) throw error;
             setMsg({ type: "success", text: "Exam updated successfully." });
@@ -106,6 +121,10 @@ function ExamDetailView({ exam, onBack, onSaved, questionPool }) {
         setSavingQuestion(true);
         setMsg({ type: "", text: "" });
         try {
+            if (!editingQuestion.options.some(opt => opt.is_correct)) {
+                throw new Error("The question must have at least one correct option selected.");
+            }
+
             // Update question text and marks
             const { error: qErr } = await thirdSupabase.from("questions").update({
                 question_text: editingQuestion.question_text,
@@ -136,6 +155,11 @@ function ExamDetailView({ exam, onBack, onSaved, questionPool }) {
         setAddingQuestions(true);
         setMsg({ type: "", text: "" });
         try {
+            const invalidIdx = newQuestions.findIndex(q => !q.options.some(opt => opt.is_correct));
+            if (invalidIdx !== -1) {
+                throw new Error(`Question ${questions.length + newQuestions.length - invalidIdx} must have at least one correct option selected.`);
+            }
+
             const currentOrder = questions.length;
             const insertedIds = [];
 
@@ -239,23 +263,30 @@ function ExamDetailView({ exam, onBack, onSaved, questionPool }) {
                         <Input label="Branch" value={form.branch} onChange={(e) => setForm({ ...form, branch: e.target.value })} />
                         <Input label="Duration (Minutes)" type="number" value={form.duration_mins} onChange={(e) => setForm({ ...form, duration_mins: e.target.value })} />
                         <Input label="Total Score" type="number" value={form.total_score} onChange={(e) => setForm({ ...form, total_score: e.target.value })} />
-                        <Input label="Total Questions" type="number" value={form.total_questions} onChange={(e) => setForm({ ...form, total_questions: e.target.value })} />
+                        <Input label="Total Questions To Render" type="number" value={form.total_questions} onChange={(e) => setForm({ ...form, total_questions: e.target.value })} />
+                        <Input
+                            label="Operational Time"
+                            type="datetime-local"
+                            value={formatForDateTimeLocal(form.operational_time)}
+                            onChange={(e) => setForm({ ...form, operational_time: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                        />
                         <div className="flex items-center gap-3">
                             <input type="checkbox" id="restricted" checked={form.restricted} onChange={(e) => setForm({ ...form, restricted: e.target.checked })} className="w-5 h-5 rounded" />
                             <label htmlFor="restricted" className="font-bold text-gray-700">Restricted Access</label>
                         </div>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-6">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6 mt-6">
                         {[
                             { label: "Duration", value: `${exam.duration_mins} min` },
                             { label: "Total Score", value: exam.total_score },
                             { label: "Questions", value: exam.total_questions },
+                            { label: "Operational Time", value: exam.operational_time ? new Date(exam.operational_time).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : "Immediate/Not Scheduled" },
                             { label: "Created", value: exam.created_at ? new Date(exam.created_at).toLocaleDateString() : "—" },
                         ].map(({ label, value }) => (
                             <div key={label} className="bg-gray-50 rounded-2xl p-4">
                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{label}</p>
-                                <p className="text-2xl font-black text-gray-900">{value}</p>
+                                <p className="text-lg md:text-xl font-black text-gray-900 leading-tight">{value}</p>
                             </div>
                         ))}
                     </div>
@@ -296,31 +327,31 @@ function ExamDetailView({ exam, onBack, onSaved, questionPool }) {
 
                         {newQuestions.map((q, qi) => (
                             <div key={qi} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-4">
-                                    <div className="flex gap-3 items-start">
-                                        <div className="flex-1">
-                                            <Textarea
-                                                placeholder={`Question ${questions.length + newQuestions.length - qi} text...`}
-                                                value={(q.question_text || "").replaceAll("/n", "\n")}
-                                                onChange={(e) => updateNewQ(qi, "question_text", e.target.value.replaceAll("\n", "/n"))}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === "Enter") {
-                                                        e.preventDefault();
-                                                        const { selectionStart, selectionEnd, value } = e.target;
-                                                        const newVal = value.substring(0, selectionStart) + "/n" + value.substring(selectionEnd);
-                                                        updateNewQ(qi, "question_text", newVal);
-                                                        setTimeout(() => {
-                                                            e.target.selectionStart = e.target.selectionEnd = selectionStart + 2;
-                                                        }, 0);
-                                                    }
-                                                }}
-                                            />
-                                        </div>
-                                        <button onClick={() => { const u = [...newQuestions]; u.splice(qi, 1); setNewQuestions(u); }} className="p-2 text-gray-300 hover:text-red-500 mt-1">
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                            </svg>
-                                        </button>
+                                <div className="flex gap-3 items-start">
+                                    <div className="flex-1">
+                                        <Textarea
+                                            placeholder={`Question ${questions.length + newQuestions.length - qi} text...`}
+                                            value={(q.question_text || "").replaceAll("/n", "\n")}
+                                            onChange={(e) => updateNewQ(qi, "question_text", e.target.value.replaceAll("\n", "/n"))}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") {
+                                                    e.preventDefault();
+                                                    const { selectionStart, selectionEnd, value } = e.target;
+                                                    const newVal = value.substring(0, selectionStart) + "/n" + value.substring(selectionEnd);
+                                                    updateNewQ(qi, "question_text", newVal);
+                                                    setTimeout(() => {
+                                                        e.target.selectionStart = e.target.selectionEnd = selectionStart + 2;
+                                                    }, 0);
+                                                }
+                                            }}
+                                        />
                                     </div>
+                                    <button onClick={() => { const u = [...newQuestions]; u.splice(qi, 1); setNewQuestions(u); }} className="p-2 text-gray-300 hover:text-red-500 mt-1">
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
                                 <div className="flex items-center gap-2">
                                     <span className="text-xs font-bold text-gray-500 uppercase">Marks:</span>
                                     <input type="number" className="w-16 p-1 border rounded-lg text-sm font-bold text-center" value={q.marks} onChange={(e) => updateNewQ(qi, "marks", parseInt(e.target.value))} />
@@ -526,7 +557,7 @@ function ExamDetailView({ exam, onBack, onSaved, questionPool }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function CreateExam() {
-    const { user, staffId } = useAuth();
+    const { staffId } = useAuth();
     const [view, setView] = useState("list");
     const [selectedExam, setSelectedExam] = useState(null);
 
@@ -537,7 +568,7 @@ export default function CreateExam() {
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [createMessage, setCreateMessage] = useState({ type: "", text: "" });
-    const [examInfo, setExamInfo] = useState({ exam_id: "", branch: "", duration_mins: 60, total_score: 100, total_questions: 20, restricted: false });
+    const [examInfo, setExamInfo] = useState({ exam_id: "", branch: "", duration_mins: 60, total_score: 100, total_questions: 20, restricted: false, operational_time: "" });
     const [selectedPoolIds, setSelectedPoolIds] = useState([]);
     const [newQuestions, setNewQuestions] = useState([]);
 
@@ -553,6 +584,12 @@ export default function CreateExam() {
             const { data, error } = await thirdSupabase.from("exam_info").select("*").order("created_at", { ascending: false });
             if (error) throw error;
             setExams(data || []);
+            // Keep the selected exam detail view in sync
+            setSelectedExam(prev => {
+                if (!prev) return null;
+                const updated = data?.find(e => e.exam_id === prev.exam_id);
+                return updated || prev;
+            });
         } catch (err) { console.error(err); }
         finally { setFetchingExams(false); }
     };
@@ -579,8 +616,18 @@ export default function CreateExam() {
         setCreateMessage({ type: "", text: "" });
         try {
             if (!examInfo.exam_id || !examInfo.branch) throw new Error("Exam ID and Branch are required.");
+            
+            const invalidIdx = newQuestions.findIndex(q => !q.options.some(opt => opt.is_correct));
+            if (invalidIdx !== -1) {
+                throw new Error(`Question ${newQuestions.length - invalidIdx} must have at least one correct option selected.`);
+            }
+
             const { data, error } = await thirdSupabase.rpc("create_complete_exam", {
-                p_exam_info: { ...examInfo, created_by: staffId },
+                p_exam_info: {
+                    ...examInfo,
+                    operational_time: examInfo.operational_time ? new Date(examInfo.operational_time).toISOString() : null,
+                    created_by: staffId
+                },
                 p_new_questions: newQuestions,
                 p_existing_question_ids: selectedPoolIds.length > 0 ? selectedPoolIds : null,
             });
@@ -588,7 +635,7 @@ export default function CreateExam() {
             setListMessage({ type: "success", text: `Exam "${data}" published successfully!` });
             setView("list");
             setStep(1);
-            setExamInfo({ exam_id: "", branch: "", duration_mins: 60, total_score: 100, total_questions: 20, restricted: false });
+            setExamInfo({ exam_id: "", branch: "", duration_mins: 60, total_score: 100, total_questions: 20, restricted: false, operational_time: "" });
             setNewQuestions([]);
             setSelectedPoolIds([]);
             fetchExams();
@@ -653,7 +700,17 @@ export default function CreateExam() {
                                     <div className="space-y-4">
                                         <div>
                                             <h3 className="text-2xl font-black text-gray-900 group-hover:text-purple-600 transition-colors uppercase truncate pr-24">{exam.exam_id}</h3>
-                                            <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">{exam.branch}</p>
+                                            <div className="flex items-center justify-between mt-1 gap-2">
+                                                <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">{exam.branch}</p>
+                                                {exam.operational_time && (
+                                                    <span className="text-xs font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-100 flex items-center gap-1">
+                                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                        {new Date(exam.operational_time).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                         <div className="grid grid-cols-3 gap-3 pt-4 border-t border-gray-50">
                                             <div>
@@ -736,6 +793,8 @@ export default function CreateExam() {
                         <Input label="Target Branch" placeholder="e.g. main" value={examInfo.branch} onChange={(e) => setExamInfo({ ...examInfo, branch: e.target.value })} />
                         <Input label="Duration (Minutes)" type="number" value={examInfo.duration_mins} onChange={(e) => setExamInfo({ ...examInfo, duration_mins: parseInt(e.target.value) })} />
                         <Input label="Total Score" type="number" value={examInfo.total_score} onChange={(e) => setExamInfo({ ...examInfo, total_score: parseInt(e.target.value) })} />
+                        <Input label="Total Questions" type="number" value={examInfo.total_questions} onChange={(e) => setExamInfo({ ...examInfo, total_questions: parseInt(e.target.value) || 0 })} />
+                        <Input label="Operational Time" type="datetime-local" value={examInfo.operational_time} onChange={(e) => setExamInfo({ ...examInfo, operational_time: e.target.value })} />
                     </div>
                     <div className="mt-4 flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100">
                         <input

@@ -81,7 +81,7 @@ export default function Scholarship() {
     const [selectedBranch, setSelectedBranch] = useState("all");
     const [branches, setBranches] = useState([]);
     const [defaultTimeSlot, setDefaultTimeSlot] = useState("09:00");
-    
+
     // Add record card state
     const [open, setOpen] = useState(false);
     const [students, setStudents] = useState([]);
@@ -252,7 +252,6 @@ export default function Scholarship() {
     // Set initial student row when add card is opened — autofill roll number and fetch slot time
     useEffect(() => {
         if (!open) return;
-        if (students.length > 0) return;
 
         const fetchNextRollNumberAndSlot = async () => {
             try {
@@ -282,7 +281,7 @@ export default function Scholarship() {
                 setStudents([createInitialStudentRow(String(nextRoll), timeStr)]);
             } catch (err) {
                 console.error("Failed to fetch next roll number and slot:", err);
-                setStudents([createInitialStudentRow("5100", "09:00")]);
+                setStudents([createInitialStudentRow("5100", hourSlot)]);
             }
         };
 
@@ -325,7 +324,7 @@ export default function Scholarship() {
             if (searchQuery.trim()) {
                 const term = searchQuery.trim();
                 let orConditions = `roll_number.ilike.%${term}%,student_name.ilike.%${term}%,father_name.ilike.%${term}%`;
-                
+
                 // Allow searching via staff_id
                 const cleanNum = term.replace(/^#/, "");
                 const parsedInt = parseInt(cleanNum, 10);
@@ -486,13 +485,13 @@ export default function Scholarship() {
 
                     const fileExt = fileToUpload.name.split('.').pop();
                     const fileName = `${s.rollNumber.trim()}_${s.studentName.trim()}.${fileExt}`;
-                    
+
                     const { error: uploadError } = await secSupabase.storage
                         .from("student-photos")
                         .upload(fileName, fileToUpload, {
                             upsert: true,
                         });
-                    
+
                     if (uploadError) {
                         throw new Error(`Failed to upload photo for ${s.studentName}: ${uploadError.message}`);
                     }
@@ -555,11 +554,11 @@ export default function Scholarship() {
 
     const handleEditRollChange = (val) => {
         setEditForm(prev => ({ ...prev, roll_number: val }));
-        
+
         if (editTimeoutRef.current) {
             clearTimeout(editTimeoutRef.current);
         }
-        
+
         editTimeoutRef.current = setTimeout(async () => {
             const trimmed = val.trim();
             if (!trimmed) {
@@ -627,13 +626,13 @@ export default function Scholarship() {
 
                 const fileExt = fileToUpload.name.split('.').pop();
                 const fileName = `${editForm.roll_number.trim()}_${editForm.student_name.trim()}.${fileExt}`;
-                
+
                 const { error: uploadError } = await secSupabase.storage
                     .from("student-photos")
                     .upload(fileName, fileToUpload, {
                         upsert: true,
                     });
-                
+
                 if (uploadError) {
                     throw new Error(`Failed to upload photo: ${uploadError.message}`);
                 }
@@ -985,11 +984,10 @@ export default function Scholarship() {
                                                     variant={student.ok ? "secondary" : "primary"}
                                                     disabled={markingOk[student.roll_number]}
                                                     onClick={() => handleMarkOk(student.roll_number, student.ok)}
-                                                    className={`${
-                                                        student.ok
-                                                            ? "bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200"
-                                                            : "bg-blue-600 hover:bg-blue-700 text-white"
-                                                    } font-bold py-1.5 px-3 rounded-lg text-xs`}
+                                                    className={`${student.ok
+                                                        ? "bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200"
+                                                        : "bg-blue-600 hover:bg-blue-700 text-white"
+                                                        } font-bold py-1.5 px-3 rounded-lg text-xs`}
                                                 >
                                                     {markingOk[student.roll_number] ? "Saving..." : student.ok ? "OK ✓" : "OK"}
                                                 </Button>
@@ -998,11 +996,10 @@ export default function Scholarship() {
                                                     variant="primary"
                                                     disabled={student.present || markingPresent[student.roll_number]}
                                                     onClick={() => handleMarkPresent(student.roll_number)}
-                                                    className={`${
-                                                        student.present
-                                                            ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
-                                                            : "bg-emerald-600 hover:bg-emerald-700 text-white"
-                                                    } font-bold py-1.5 px-3 rounded-lg text-xs`}
+                                                    className={`${student.present
+                                                        ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
+                                                        : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                                        } font-bold py-1.5 px-3 rounded-lg text-xs`}
                                                 >
                                                     {markingPresent[student.roll_number] ? "Saving..." : "Present"}
                                                 </Button>
@@ -1096,21 +1093,21 @@ export default function Scholarship() {
                 {viewStudent && (
                     <div className="space-y-4">
                         <div className="grid grid-cols-1 gap-3">
-                                                            <DetailRow label="Roll Number" value={viewStudent.roll_number} />
-                                                            <DetailRow label="Full Name" value={viewStudent.student_name} />
-                                                            <DetailRow label="Father Name" value={viewStudent.father_name} />
-                                                            <DetailRow label="Mother Name" value={viewStudent.mother_name} />
-                                                            <DetailRow label="Gender" value={viewStudent.gender} />
-                                                            <DetailRow label="Phone Number" value={viewStudent.phone_number} />
-                                                            <DetailRow label="Address" value={viewStudent.address} />
-                                                            <DetailRow label="Branch" value={viewStudent.branch} />
-                                                            <DetailRow label="Staff ID" value={viewStudent.staff_id !== null ? `#${viewStudent.staff_id}` : "—"} />
-                                                            <DetailRow label="Date" value={viewStudent.date} />
-                                                            <DetailRow label="Time" value={viewStudent.time ? viewStudent.time.slice(0, 5) : "-"} />
-                                                            {viewStudent.score !== null && <DetailRow label="Score" value={viewStudent.score} />}
-                                                            <DetailRow label="Present Status" value={viewStudent.present ? "True" : "False"} />
-                                                            <DetailRow label="OK Status" value={viewStudent.ok ? "True" : "False"} />
-                                                        </div>
+                            <DetailRow label="Roll Number" value={viewStudent.roll_number} />
+                            <DetailRow label="Full Name" value={viewStudent.student_name} />
+                            <DetailRow label="Father Name" value={viewStudent.father_name} />
+                            <DetailRow label="Mother Name" value={viewStudent.mother_name} />
+                            <DetailRow label="Gender" value={viewStudent.gender} />
+                            <DetailRow label="Phone Number" value={viewStudent.phone_number} />
+                            <DetailRow label="Address" value={viewStudent.address} />
+                            <DetailRow label="Branch" value={viewStudent.branch} />
+                            <DetailRow label="Staff ID" value={viewStudent.staff_id !== null ? `#${viewStudent.staff_id}` : "—"} />
+                            <DetailRow label="Date" value={viewStudent.date} />
+                            <DetailRow label="Time" value={viewStudent.time ? viewStudent.time.slice(0, 5) : "-"} />
+                            {viewStudent.score !== null && <DetailRow label="Score" value={viewStudent.score} />}
+                            <DetailRow label="Present Status" value={viewStudent.present ? "True" : "False"} />
+                            <DetailRow label="OK Status" value={viewStudent.ok ? "True" : "False"} />
+                        </div>
                         <Button variant="secondary" className="w-full mt-4" onClick={() => setViewStudent(null)}>Close</Button>
                     </div>
                 )}

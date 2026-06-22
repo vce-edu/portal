@@ -460,11 +460,14 @@ export default function Fees() {
         maxWidth="max-w-2xl"
       >
         <div className="space-y-6">
-          <div className="text-center py-2 bg-purple-50 rounded-2xl border border-purple-100">
+          <div className="text-center py-3 bg-purple-50 rounded-2xl border border-purple-100 flex flex-col items-center gap-1">
             <p className="text-xs font-bold text-purple-400 uppercase tracking-widest">Student</p>
             <h3 className="text-xl font-black text-purple-700">
               {feesHistory[0]?.student_name?.toUpperCase() || "UNNAMED"}
             </h3>
+            <Badge variant="emerald" className="mt-1 text-sm font-bold px-3 py-1">
+              Total Paid: ₹{feesHistory.reduce((sum, f) => sum + (Number(f.amount_paid) || 0), 0)}
+            </Badge>
           </div>
 
           <Table>
