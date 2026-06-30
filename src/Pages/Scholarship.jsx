@@ -113,8 +113,20 @@ export default function Scholarship() {
     const [editRollError, setEditRollError] = useState("");
     const editTimeoutRef = useRef(null);
 
+    // Migration Modal State
+    const [confirmingItem, setConfirmingItem] = useState(null);
+    const [confirmFormData, setConfirmFormData] = useState({
+        roll_number: "",
+        course: "MDCA",
+        duration: "",
+        fee_month: "",
+        batch_time: "",
+        admission_date: new Date().toISOString().split("T")[0]
+    });
+
     const [showOnlyPresent, setShowOnlyPresent] = useState(false);
     const [showOnlyOk, setShowOnlyOk] = useState(false);
+    const [showOnlyConfirmed, setShowOnlyConfirmed] = useState(false);
     const [markingPresent, setMarkingPresent] = useState({});
     const [markingOk, setMarkingOk] = useState({});
     const [localScores, setLocalScores] = useState({});
@@ -295,11 +307,12 @@ export default function Scholarship() {
                 if (open) setOpen(false);
                 if (editStudent) setEditStudent(null);
                 if (viewStudent) setViewStudent(null);
+                if (confirmingItem) setConfirmingItem(null);
             }
         };
         window.addEventListener("keydown", handleEsc);
         return () => window.removeEventListener("keydown", handleEsc);
-    }, [open, editStudent, viewStudent]);
+    }, [open, editStudent, viewStudent, confirmingItem]);
 
     // Fetch scholarship records
     const fetchScholarshipPool = useCallback(async () => {
@@ -342,6 +355,10 @@ export default function Scholarship() {
                 query = query.eq("ok", true);
             }
 
+            if (showOnlyConfirmed) {
+                query = query.eq("confirmed", true);
+            }
+
             const { data: response, count, error } = await query;
             if (error) throw error;
 
@@ -352,7 +369,7 @@ export default function Scholarship() {
         } finally {
             setLoading(false);
         }
-    }, [page, selectedBranch, branch, searchQuery, showOnlyPresent, showOnlyOk, role, staffId]);
+    }, [page, selectedBranch, branch, searchQuery, showOnlyPresent, showOnlyOk, showOnlyConfirmed, role, staffId]);
 
     // Debounced search trigger
     useEffect(() => {
@@ -513,6 +530,59 @@ export default function Scholarship() {
         }
     };
 
+    const handleConfirm = (student) => {
+        setConfirmingItem(student);
+        setConfirmFormData({
+            roll_number: student.roll_number,
+            course: "MDCA",
+            duration: "",
+            fee_month: "",
+            batch_time: "",
+            admission_date: new Date().toISOString().split("T")[0]
+        });
+    };
+
+    const executeMigration = async () => {
+        if (!confirmingItem) return;
+
+        setLoading(true);
+        try {
+            const { error: insertError } = await supabase.from("students").insert([{
+                roll_number: confirmFormData.roll_number,
+                student_name: confirmingItem.student_name,
+                father_name: confirmingItem.father_name,
+                mother_name: confirmingItem.mother_name || "—",
+                phone_number: confirmingItem.phone_number,
+                branch: confirmingItem.branch,
+                address: confirmingItem.address || "",
+                course: confirmFormData.course || "General",
+                duration: confirmFormData.duration || null,
+                fee_month: confirmFormData.fee_month ? parseFloat(confirmFormData.fee_month) : null,
+                addmission_date: confirmFormData.admission_date,
+                batch_time: confirmFormData.batch_time || null
+            }]);
+
+            if (insertError) throw insertError;
+
+            // Mark the student as confirmed in scholarship_students table
+            const { error: updateError } = await supabase
+                .from("scholarship_students")
+                .update({ confirmed: true })
+                .eq("roll_number", confirmingItem.roll_number);
+
+            if (updateError) throw updateError;
+
+            setConfirmingItem(null);
+            fetchScholarshipPool();
+            alert("Student confirmed and copied to main students list successfully!");
+        } catch (error) {
+            console.error("Migration error:", error);
+            alert("Error during migration: " + error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleDelete = async (rollNumber) => {
         if (!confirm(`Are you sure you want to delete scholarship record ${rollNumber}?`)) return;
 
@@ -548,6 +618,7 @@ export default function Scholarship() {
             staff_id: student.staff_id,
             photo: null,
             ok: student.ok || false,
+            confirmed: student.confirmed || false,
         });
         setEditStudent(student);
     };
@@ -653,6 +724,7 @@ export default function Scholarship() {
                     time: editForm.time ? `${editForm.time}:00` : null,
                     present: editForm.present === "true",
                     ok: editForm.ok,
+                    confirmed: editForm.confirmed,
                 })
                 .eq("roll_number", originalRoll);
 
@@ -735,6 +807,17 @@ export default function Scholarship() {
                         />
                         <span className="text-xs font-black text-purple-950 uppercase tracking-wider">
                             Only OK Students
+                        </span>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer select-none">
+                        <input
+                            type="checkbox"
+                            checked={showOnlyConfirmed}
+                            onChange={(e) => setShowOnlyConfirmed(e.target.checked)}
+                            className="w-5 h-5 rounded-lg border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                        />
+                        <span className="text-xs font-black text-purple-950 uppercase tracking-wider">
+                            Only Confirmed Students
                         </span>
                     </label>
                 </div>
@@ -936,6 +1019,16 @@ export default function Scholarship() {
                                         </TD>
                                         <TD className="py-5 font-black text-gray-900 group-hover:text-emerald-700 transition-colors">
                                             <div className="flex items-center gap-2">
+                                                {student.confirmed && (
+                                                    <div className="flex items-center -space-x-1 shrink-0" title="Confirmed Student">
+                                                        <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3.5} d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                        <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3.5} d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    </div>
+                                                )}
                                                 {student.ok && (
                                                     <svg className="w-5 h-5 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" title="Verified OK">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -1014,6 +1107,18 @@ export default function Scholarship() {
                                                     }}
                                                     className="w-20 px-2 py-1.5 text-xs border border-gray-200 rounded-lg text-center outline-none focus:ring-2 focus:ring-purple-200 placeholder:text-gray-300 font-bold bg-white text-gray-700"
                                                 />
+                                                <Button
+                                                    size="sm"
+                                                    variant="primary"
+                                                    disabled={student.confirmed}
+                                                    onClick={() => handleConfirm(student)}
+                                                    className={`${student.confirmed
+                                                        ? "bg-purple-100 text-purple-400 border border-purple-200 cursor-not-allowed"
+                                                        : "bg-purple-600 hover:bg-purple-700 text-white"
+                                                        } font-bold py-1.5 px-3 rounded-lg text-xs`}
+                                                >
+                                                    Confirm
+                                                </Button>
                                                 <Button
                                                     size="sm"
                                                     variant="outline"
@@ -1107,6 +1212,7 @@ export default function Scholarship() {
                             {viewStudent.score !== null && <DetailRow label="Score" value={viewStudent.score} />}
                             <DetailRow label="Present Status" value={viewStudent.present ? "True" : "False"} />
                             <DetailRow label="OK Status" value={viewStudent.ok ? "True" : "False"} />
+                            <DetailRow label="Confirmed Status" value={viewStudent.confirmed ? "True" : "False"} />
                         </div>
                         <Button variant="secondary" className="w-full mt-4" onClick={() => setViewStudent(null)}>Close</Button>
                     </div>
@@ -1222,6 +1328,84 @@ export default function Scholarship() {
                         ]}
                         required
                     />
+                    <Select
+                        label="Confirmed Status"
+                        value={editForm.confirmed ? "true" : "false"}
+                        onChange={(e) => setEditForm({ ...editForm, confirmed: e.target.value === "true" })}
+                        options={[
+                            { value: "true", label: "True" },
+                            { value: "false", label: "False" }
+                        ]}
+                        required
+                    />
+                </div>
+            </Modal>
+
+            {/* CONFIRMATION / MIGRATION MODAL */}
+            <Modal
+                isOpen={!!confirmingItem}
+                onClose={() => setConfirmingItem(null)}
+                title="Confirm Student Admission"
+                footer={
+                    <>
+                        <Button variant="outline" onClick={() => setConfirmingItem(null)}>Cancel</Button>
+                        <Button variant="primary" onClick={executeMigration} loading={loading}>Confirm & Copy to Students</Button>
+                    </>
+                }
+            >
+                <div className="space-y-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <Input
+                            label="Roll Number (Keep Same)"
+                            value={confirmFormData.roll_number}
+                            disabled
+                            required
+                        />
+                        <Input
+                            label="Course"
+                            value={confirmFormData.course}
+                            onChange={(e) => setConfirmFormData({ ...confirmFormData, course: e.target.value })}
+                            required
+                        />
+                        <Input
+                            label="Duration"
+                            value={confirmFormData.duration}
+                            onChange={(e) => setConfirmFormData({ ...confirmFormData, duration: e.target.value })}
+                            placeholder="e.g. 6 Months"
+                        />
+                        <Input
+                            label="Fee Month"
+                            type="number"
+                            value={confirmFormData.fee_month}
+                            onChange={(e) => setConfirmFormData({ ...confirmFormData, fee_month: e.target.value })}
+                            placeholder="e.g. 1500"
+                        />
+                        <Input
+                            label="Batch Time"
+                            value={confirmFormData.batch_time}
+                            onChange={(e) => setConfirmFormData({ ...confirmFormData, batch_time: e.target.value })}
+                            placeholder="e.g. 10:00 AM - 12:00 PM"
+                        />
+                        <Input
+                            label="Admission Date"
+                            type="date"
+                            value={confirmFormData.admission_date}
+                            onChange={(e) => setConfirmFormData({ ...confirmFormData, admission_date: e.target.value })}
+                        />
+                    </div>
+
+                    {confirmingItem && (
+                        <div className="p-6 bg-purple-50/50 rounded-3xl border border-purple-100 flex items-center gap-6">
+                            <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center text-2xl shadow-sm">🎓</div>
+                            <div>
+                                <p className="text-xs font-black text-purple-900/40 uppercase tracking-[0.2em] mb-1">Student Details</p>
+                                <p className="text-lg font-black text-gray-900">{confirmingItem.student_name}</p>
+                                <p className="text-sm font-black text-purple-600 uppercase tracking-tight">
+                                    {confirmingItem.branch} • {confirmingItem.phone_number}
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </Modal>
         </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { supabase } from "../createClient";
+import { supabase, secSupabase } from "../createClient";
 import { useAuth } from "../context/AuthContext";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -12,6 +12,56 @@ import NoteTooltip from "../components/ui/NoteTooltip";
 import BatchTimePicker, { renderBatchTime } from "../components/ui/BatchTimePicker";
 import Badge from "../components/ui/Badge";
 import { Table, THead, TBody, TH, TD, TR } from "../components/ui/Table";
+
+const compressImage = (file, quality = 0.7, maxWidth = 1024, maxHeight = 1024) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const compressedFile = new File([blob], file.name, {
+                type: "image/jpeg",
+                lastModified: Date.now(),
+              });
+              resolve(compressedFile);
+            } else {
+              reject(new Error("Canvas toBlob failed"));
+            }
+          },
+          "image/jpeg",
+          quality
+        );
+      };
+      img.onerror = (err) => reject(err);
+    };
+    reader.onerror = (err) => reject(err);
+  });
+};
 
 export default function Students() {
   const navigate = useNavigate();
@@ -37,6 +87,7 @@ export default function Students() {
       branch: branch?.toLowerCase() === "all" ? "main" : branch,
       batchTime: "",
       address: "",
+      photo: null,
     },
   ]);
 
@@ -48,6 +99,8 @@ export default function Students() {
 
   // VIEW MORE MODAL
   const [viewStudent, setViewStudent] = useState(null);
+  const [photoUrl, setPhotoUrl] = useState(null);
+  const [fetchingPhoto, setFetchingPhoto] = useState(false);
 
   // UPDATE MODAL
   const [editStudent, setEditStudent] = useState(null);
@@ -66,6 +119,7 @@ export default function Students() {
     branch: "",
     batch_time: "",
     address: "",
+    photo: null,
   });
   const [originalRoll, setOriginalRoll] = useState(null);
   const [showBreakStudents, setShowBreakStudents] = useState(false);
@@ -168,6 +222,7 @@ export default function Students() {
         branch: branch?.toLowerCase() === "all" ? "main" : branch,
         batchTime: "",
         address: "",
+        photo: null,
       },
     ]);
   };
@@ -287,57 +342,101 @@ export default function Students() {
       return;
     }
 
-    const formattedData = students.map((s) => {
-      const prefix =
-        s.branch && s.branch.trim() !== ""
-          ? s.branch.trim().toLowerCase().charAt(0) + "_"
-          : "";
+    setLoading(true);
+    try {
+      // Upload student photos to secSupabase storage first
+      for (let i = 0; i < students.length; i++) {
+        const s = students[i];
+        if (s.photo) {
+          if (!s.photo.type.startsWith("image/")) {
+            throw new Error(`File selected for ${s.studentName} is not a valid image.`);
+          }
+          if (s.photo.size > 10 * 1024 * 1024) {
+            throw new Error(`Photo for ${s.studentName} exceeds the maximum size limit of 10MB.`);
+          }
 
-      return {
-        roll_number: `${prefix}${s.rollNumber}`,
-        student_name: s.studentName,
-        father_name: s.fatherName,
-        mother_name: s.motherName,
-        course: s.course,
-        duration: s.duration || null,
-        fee_month: s.feeMonth ? parseFloat(s.feeMonth) : null,
-        phone_number: s.phoneNumber,
-        addmission_date: s.admissionDate,
-        branch: s.branch,
-        batch_time: s.batchTime?.formatted || s.batchTime,
-        address: s.address || "",
-      };
-    });
+          let fileToUpload = s.photo;
+          try {
+            fileToUpload = await compressImage(s.photo, 0.7, 1024, 1024);
+          } catch (compressErr) {
+            console.error(`Compression failed for ${s.studentName}, using original photo:`, compressErr);
+          }
 
-    const { error } = await supabase.from("students").insert(formattedData);
+          const prefix =
+            s.branch && s.branch.trim() !== ""
+              ? s.branch.trim().toLowerCase().charAt(0) + "_"
+              : "";
+          const fullRoll = `${prefix}${s.rollNumber.trim()}`;
+          const fileExt = fileToUpload.name.split('.').pop();
+          const fileName = `${fullRoll}_${s.studentName.trim()}.${fileExt}`;
 
-    if (error) {
-      alert("Error adding students: " + error.message);
-      console.error(error);
-      return;
+          const { error: uploadError } = await secSupabase.storage
+            .from("student-photos")
+            .upload(fileName, fileToUpload, {
+              upsert: true,
+            });
+
+          if (uploadError) {
+            throw new Error(`Failed to upload photo for ${s.studentName}: ${uploadError.message}`);
+          }
+        }
+      }
+
+      const formattedData = students.map((s) => {
+        const prefix =
+          s.branch && s.branch.trim() !== ""
+            ? s.branch.trim().toLowerCase().charAt(0) + "_"
+            : "";
+
+        return {
+          roll_number: `${prefix}${s.rollNumber}`,
+          student_name: s.studentName,
+          father_name: s.fatherName,
+          mother_name: s.motherName,
+          course: s.course,
+          duration: s.duration || null,
+          fee_month: s.feeMonth ? parseFloat(s.feeMonth) : null,
+          phone_number: s.phoneNumber,
+          addmission_date: s.admissionDate,
+          branch: s.branch,
+          batch_time: s.batchTime?.formatted || s.batchTime,
+          address: s.address || "",
+        };
+      });
+
+      const { error } = await supabase.from("students").insert(formattedData);
+
+      if (error) throw error;
+
+      alert("Students added successfully!");
+      const activeBranch = branch?.toLowerCase() === "all" ? selectedBranch : branch;
+      await fetchStudents(activeBranch, 0, search, true);
+
+      setStudents([
+        {
+          rollNumber: "",
+          studentName: "",
+          fatherName: "",
+          motherName: "",
+          course: "",
+          duration: "",
+          feeMonth: "",
+          phoneNumber: "",
+          admissionDate: "",
+          branch: branch?.toLowerCase() === "all" ? "main" : branch,
+          batchTime: "",
+          address: "",
+          photo: null,
+        },
+      ]);
+
+      setOpen(false);
+    } catch (err) {
+      alert("Error adding students: " + err.message);
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
-
-    alert("Students added successfully!");
-    await fetchStudents();
-
-    setStudents([
-      {
-        rollNumber: "",
-        studentName: "",
-        fatherName: "",
-        motherName: "",
-        course: "",
-        duration: "",
-        feeMonth: "",
-        phoneNumber: "",
-        admissionDate: "",
-        branch: branch?.toLowerCase() === "all" ? "main" : branch,
-        batchTime: "",
-        address: "",
-      },
-    ]);
-
-    setOpen(false);
   };
 
   // DELETE FUNCTIONALITY
@@ -498,27 +597,63 @@ export default function Students() {
   };
 
   const handleUpdate = async () => {
-    const tableName = showBreakStudents ? "break_students" : "students";
-    const { error } = await supabase
-      .from(tableName)
-      .update({
-        ...editForm,
-        batch_time: editForm.batch_time?.formatted || editForm.batch_time,
-        addmission_date: editForm.addmission_date,
-      })
-      .eq("roll_number", originalRoll);
+    setLoading(true);
+    try {
+      if (editForm.photo) {
+        if (!editForm.photo.type.startsWith("image/")) {
+          throw new Error("File selected is not a valid image.");
+        }
+        if (editForm.photo.size > 10 * 1024 * 1024) {
+          throw new Error("Photo exceeds the maximum size limit of 10MB.");
+        }
 
-    if (error) {
-      alert("Update failed: " + error.message);
-      return;
+        let fileToUpload = editForm.photo;
+        try {
+          fileToUpload = await compressImage(editForm.photo, 0.7, 1024, 1024);
+        } catch (compressErr) {
+          console.error("Compression failed, using original photo:", compressErr);
+        }
+
+        const fileExt = fileToUpload.name.split('.').pop();
+        const fileName = `${editForm.roll_number.trim()}_${editForm.student_name.trim()}.${fileExt}`;
+
+        const { error: uploadError } = await secSupabase.storage
+          .from("student-photos")
+          .upload(fileName, fileToUpload, {
+            upsert: true,
+          });
+
+        if (uploadError) {
+          throw new Error(`Failed to upload photo: ${uploadError.message}`);
+        }
+      }
+
+      const { photo: _photo, ...dbUpdatePayload } = editForm;
+
+      const tableName = showBreakStudents ? "break_students" : "students";
+      const { error } = await supabase
+        .from(tableName)
+        .update({
+          ...dbUpdatePayload,
+          batch_time: editForm.batch_time?.formatted || editForm.batch_time,
+          addmission_date: editForm.addmission_date,
+        })
+        .eq("roll_number", originalRoll);
+
+      if (error) throw error;
+
+      alert("Student updated!");
+      console.log("ORIGINAL:", originalRoll);
+      console.log("EDIT FORM:", editForm);
+      setEditStudent(null);
+      const activeBranch = branch?.toLowerCase() === "all" ? selectedBranch : branch;
+      fetchStudents(activeBranch, 0, search, true);
+    } catch (err) {
+      alert("Update failed: " + err.message);
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
-
-    alert("Student updated!");
-    console.log("ORIGINAL:", originalRoll);
-    console.log("EDIT FORM:", editForm);
-    setEditStudent(null);
-    const activeBranch = branch?.toLowerCase() === "all" ? selectedBranch : branch;
-    fetchStudents(activeBranch, 0, search, true);
   };
 
   // BULK ACTIONS
@@ -691,6 +826,7 @@ export default function Students() {
       branch: student.branch,
       batch_time: student.batch_time,
       address: student.address || "",
+      photo: null,
     });
 
     setEditStudent(student);
@@ -729,6 +865,46 @@ export default function Students() {
       fetchAllBranches();
     }
   }, [branch, fetchAllBranches, showBreakStudents]);
+
+  useEffect(() => {
+    if (!viewStudent) {
+      setPhotoUrl(null);
+      return;
+    }
+
+    const fetchPhoto = async () => {
+      setFetchingPhoto(true);
+      try {
+        const roll = viewStudent.roll_number;
+        const { data, error } = await secSupabase.storage
+          .from("student-photos")
+          .list("", {
+            search: roll,
+          });
+
+        if (error) throw error;
+
+        const file = data?.find(f => f.name.startsWith(`${roll}_`));
+        if (file) {
+          const { data: urlData, error: signedError } = await secSupabase.storage
+            .from("student-photos")
+            .createSignedUrl(file.name, 60 * 60);
+
+          if (signedError) throw signedError;
+          setPhotoUrl(urlData?.signedUrl || null);
+        } else {
+          setPhotoUrl(null);
+        }
+      } catch (err) {
+        console.error("Error fetching photo:", err);
+        setPhotoUrl(null);
+      } finally {
+        setFetchingPhoto(false);
+      }
+    };
+
+    fetchPhoto();
+  }, [viewStudent]);
 
   // Pagination effect removed as it's now handled by the branch/fetch effect above.
 
@@ -892,6 +1068,12 @@ export default function Students() {
                       label="Batch Time"
                       value={s.batchTime}
                       onChange={(val) => handleChange(index, "batchTime", val)}
+                    />
+                    <Input
+                      label="Student Photo"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleChange(index, "photo", e.target.files?.[0] || null)}
                     />
                   </div>
                 </div>
@@ -1109,6 +1291,12 @@ export default function Students() {
               className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white focus:ring-2 focus:ring-purple-500 transition outline-none"
             />
           </div>
+          <Input
+            label="Student Photo"
+            type="file"
+            accept="image/*"
+            onChange={(e) => setEditForm({ ...editForm, photo: e.target.files?.[0] || null })}
+          />
         </div>
       </Modal>
 
@@ -1167,6 +1355,31 @@ export default function Students() {
       >
         {viewStudent && (
           <div className="space-y-4">
+            {/* Student Photo Profile Header */}
+            <div className="flex flex-col items-center justify-center p-4 bg-gray-50/50 rounded-2xl border border-gray-100/80">
+              {fetchingPhoto ? (
+                <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200 animate-pulse">
+                  <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : photoUrl ? (
+                <img
+                  src={photoUrl}
+                  alt={viewStudent.student_name}
+                  className="w-28 h-28 rounded-full object-cover border-4 border-white shadow-md hover:scale-105 transition-transform duration-300"
+                />
+              ) : (
+                <div className="w-24 h-24 rounded-full bg-purple-100 flex items-center justify-center border-4 border-white shadow-md">
+                  <span className="text-3xl font-black text-purple-600">
+                    {viewStudent.student_name?.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+              )}
+              <h4 className="mt-3 text-lg font-black text-gray-900 tracking-tight">{viewStudent.student_name}</h4>
+              <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2.5 py-1 rounded-full uppercase tracking-wider mt-1">
+                {viewStudent.roll_number}
+              </span>
+            </div>
+
             <div className="grid grid-cols-1 gap-3">
               <DetailRow label="Roll Number" value={viewStudent.roll_number} />
               <DetailRow label="Full Name" value={viewStudent.student_name} />
