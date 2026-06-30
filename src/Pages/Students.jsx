@@ -1004,7 +1004,15 @@ export default function Students() {
               type="checkbox"
               id="breakFilter"
               checked={showBreakStudents}
-              onChange={(e) => setShowBreakStudents(e.target.checked)}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setShowBreakStudents(checked);
+                if (checked) {
+                  const now = new Date();
+                  setBreakStartDateFilter(new Date(now.getFullYear(), now.getMonth(), 1));
+                  setBreakEndDateFilter(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+                }
+              }}
               className="w-4 h-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded cursor-pointer"
             />
             <label htmlFor="breakFilter" className="text-sm font-bold text-orange-700 cursor-pointer select-none">
