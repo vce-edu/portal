@@ -63,6 +63,15 @@ const compressImage = (file, quality = 0.7, maxWidth = 1024, maxHeight = 1024) =
   });
 };
 
+const formatLocalDate = (date) => {
+  if (!date) return "";
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function Students() {
   const navigate = useNavigate();
   const { branch } = useAuth();
@@ -123,6 +132,8 @@ export default function Students() {
   });
   const [originalRoll, setOriginalRoll] = useState(null);
   const [showBreakStudents, setShowBreakStudents] = useState(false);
+  const [breakStartDateFilter, setBreakStartDateFilter] = useState(null);
+  const [breakEndDateFilter, setBreakEndDateFilter] = useState(null);
 
   // BREAK MODAL
   const [breakModalOpen, setBreakModalOpen] = useState(false);
@@ -168,6 +179,17 @@ export default function Students() {
         query = query.eq("branch", branchToUse.toLowerCase());
       }
 
+      if (showBreakStudents) {
+        if (breakStartDateFilter) {
+          const startStr = formatLocalDate(breakStartDateFilter);
+          query = query.gte("from", startStr);
+        }
+        if (breakEndDateFilter) {
+          const endStr = formatLocalDate(breakEndDateFilter);
+          query = query.lte("from", endStr);
+        }
+      }
+
       if (searchTerm.trim()) {
         query = query.or(`roll_number.ilike.%${searchTerm}%,student_name.ilike.%${searchTerm}%,father_name.ilike.%${searchTerm}%`);
       }
@@ -192,11 +214,15 @@ export default function Students() {
     } finally {
       setLoading(false);
     }
-  }, [pageSize, showBreakStudents]);
+  }, [pageSize, showBreakStudents, breakStartDateFilter, breakEndDateFilter]);
 
   // RESET SELECTION ON FILTER CHANGE
   useEffect(() => {
     setSelectedStudents([]);
+    if (!showBreakStudents) {
+      setBreakStartDateFilter(null);
+      setBreakEndDateFilter(null);
+    }
   }, [showBreakStudents, search, selectedBranch]);
 
 
@@ -471,8 +497,8 @@ export default function Students() {
 
     try {
       setLoading(true);
-      const fromDate = breakDates.from ? breakDates.from.toISOString().split("T")[0] : new Date().toISOString().split("T")[0];
-      const toDate = breakDates.to ? breakDates.to.toISOString().split("T")[0] : null;
+      const fromDate = breakDates.from ? formatLocalDate(breakDates.from) : formatLocalDate(new Date());
+      const toDate = breakDates.to ? formatLocalDate(breakDates.to) : null;
 
       // Insert into break_students
       const { error: insertError } = await supabase
@@ -689,7 +715,7 @@ export default function Students() {
 
       if (fetchError) throw fetchError;
 
-      const fromDate = new Date().toISOString().split("T")[0];
+      const fromDate = formatLocalDate(new Date());
       const breakData = selectedData.map(student => ({
         roll_number: student.roll_number,
         student_name: student.student_name || "",
@@ -842,7 +868,7 @@ export default function Students() {
       fetchStudents(activeBranch, 0, search, true);
     }, 300);
     return () => clearTimeout(delay);
-  }, [search, fetchStudents, branch, selectedBranch, showBreakStudents]);
+  }, [search, fetchStudents, branch, selectedBranch, showBreakStudents, breakStartDateFilter, breakEndDateFilter]);
 
   const fetchAllBranches = useCallback(async () => {
     const tableName = showBreakStudents ? "break_students" : "students";
@@ -985,6 +1011,39 @@ export default function Students() {
               Break Students
             </label>
           </div>
+
+          {showBreakStudents && (
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-semibold text-gray-700 whitespace-nowrap">Break From:</label>
+                <DatePicker
+                  selected={breakStartDateFilter}
+                  onChange={(date) => setBreakStartDateFilter(date)}
+                  dateFormat="dd/MM/yyyy"
+                  placeholderText="Start Date"
+                  isClearable
+                  className="w-32 border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-purple-500 transition"
+                  showMonthDropdown
+                  showYearDropdown
+                  dropdownMode="select"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-semibold text-gray-700 whitespace-nowrap">To:</label>
+                <DatePicker
+                  selected={breakEndDateFilter}
+                  onChange={(date) => setBreakEndDateFilter(date)}
+                  dateFormat="dd/MM/yyyy"
+                  placeholderText="End Date"
+                  isClearable
+                  className="w-32 border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-purple-500 transition"
+                  showMonthDropdown
+                  showYearDropdown
+                  dropdownMode="select"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="text-xs md:text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full flex items-center gap-2">
@@ -1044,7 +1103,7 @@ export default function Students() {
                       <DatePicker
                         selected={s.admissionDate ? new Date(s.admissionDate) : null}
                         onChange={(date) => {
-                          const iso = date ? date.toISOString().split("T")[0] : "";
+                          const iso = date ? formatLocalDate(date) : "";
                           handleChange(index, "admissionDate", iso);
                         }}
                         dateFormat="dd/MM/yyyy"
@@ -1241,7 +1300,7 @@ export default function Students() {
               {studentList.length === 0 && (
                 <TR>
                   <TD colSpan={6} className="py-12 text-center text-gray-400 font-medium italic px-6">
-                    No students found.
+                    {showBreakStudents && (breakStartDateFilter || breakEndDateFilter) ? "No match found." : "No students found."}
                   </TD>
                 </TR>
               )}
