@@ -32,6 +32,7 @@ export default function StaffDashboard() {
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedBranch, setSelectedBranch] = useState("all");
     const [branches, setBranches] = useState([]);
+    const [defaultTimeSlot, setDefaultTimeSlot] = useState("09:00");
 
     // Add record card state
     const [open, setOpen] = useState(false);
@@ -147,7 +148,7 @@ export default function StaffDashboard() {
         return branch.toLowerCase();
     };
 
-    const createInitialStudentRow = (rollNumber = "") => ({
+    const createInitialStudentRow = (rollNumber = "", defaultTime = defaultTimeSlot) => ({
         rollNumber,
         studentName: "",
         fatherName: "",
@@ -157,7 +158,7 @@ export default function StaffDashboard() {
         address: "",
         branch: getInitialBranch(),
         date: new Date().toISOString().split("T")[0],
-        time: new Date().toTimeString().split(" ")[0].slice(0, 5),
+        time: defaultTime,
         photo: null,
     });
 
@@ -171,12 +172,12 @@ export default function StaffDashboard() {
         fetchBranches();
     }, []);
 
-    // Set initial student row when add card is opened — autofill roll number
+    // Set initial student row when add card is opened — autofill roll number and fetch slot time
     useEffect(() => {
         if (!open) return;
         if (students.length > 0) return;
 
-        const fetchNextRollNumber = async () => {
+        const fetchNextRollNumberAndSlot = async () => {
             try {
                 const { data: rows } = await supabase
                     .from("scholarship_students")
@@ -187,14 +188,28 @@ export default function StaffDashboard() {
                 const max = rows?.[0]?.roll_number;
                 const nextRoll = max ? parseInt(max, 10) + 1 : 5100;
 
-                setStudents([createInitialStudentRow(String(nextRoll))]);
+                // Fetch available slot time via RPC (pass today's date)
+                let timeStr = "09:00";
+                try {
+                    const todayDate = new Date().toISOString().split("T")[0];
+                    const { data: slotTime, error: slotErr } = await supabase.rpc("get_available_slot", { p_date: todayDate });
+                    if (!slotErr && slotTime) {
+                        // slotTime is a TIME string like "09:00:00" — take first 5 chars
+                        timeStr = slotTime.slice(0, 5);
+                    }
+                } catch (slotErr) {
+                    console.error("Failed to fetch available slot:", slotErr);
+                }
+
+                setDefaultTimeSlot(timeStr);
+                setStudents([createInitialStudentRow(String(nextRoll), timeStr)]);
             } catch (err) {
-                console.error("Failed to fetch next roll number:", err);
-                setStudents([createInitialStudentRow("5100")]);
+                console.error("Failed to fetch next roll number and slot:", err);
+                setStudents([createInitialStudentRow("5100", "09:00")]);
             }
         };
 
-        fetchNextRollNumber();
+        fetchNextRollNumberAndSlot();
     }, [open]);
 
     // Esc key handler to close forms/modals
@@ -298,6 +313,25 @@ export default function StaffDashboard() {
             timeoutRef.current[index] = setTimeout(() => {
                 checkRollNumberDuplicate(index, value, newStudents);
             }, 500);
+        }
+
+        if (field === "date") {
+            if (value) {
+                // Fetch available slot time via RPC
+                (async () => {
+                    try {
+                        const { data: slotTime, error: slotErr } = await supabase.rpc("get_available_slot", { p_date: value });
+                        if (!slotErr && slotTime) {
+                            const timeStr = slotTime.slice(0, 5);
+                            setStudents(prev => prev.map((s, idx) => idx === index ? { ...s, time: timeStr } : s));
+                        }
+                    } catch (slotErr) {
+                        console.error("Failed to fetch available slot:", slotErr);
+                    }
+                })();
+            } else {
+                setStudents(prev => prev.map((s, idx) => idx === index ? { ...s, time: "" } : s));
+            }
         }
     };
 

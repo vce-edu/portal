@@ -238,7 +238,7 @@ export default function Scholarship() {
         return branch.toLowerCase();
     };
 
-    const createInitialStudentRow = (rollNumber = "", defaultTime = defaultTimeSlot) => ({
+    const createInitialStudentRow = (rollNumber = "", defaultTime = "") => ({
         rollNumber,
         studentName: "",
         fatherName: "",
@@ -247,7 +247,7 @@ export default function Scholarship() {
         phoneNumber: "",
         address: "",
         branch: getInitialBranch(),
-        date: "2026-06-21",
+        date: "",
         time: defaultTime,
         photo: null,
     });
@@ -262,11 +262,11 @@ export default function Scholarship() {
         fetchBranches();
     }, []);
 
-    // Set initial student row when add card is opened — autofill roll number and fetch slot time
+    // Set initial student row when add card is opened — autofill roll number
     useEffect(() => {
         if (!open) return;
 
-        const fetchNextRollNumberAndSlot = async () => {
+        const fetchNextRollNumber = async () => {
             try {
                 // Fetch next roll number
                 const { data: rows } = await supabase
@@ -278,27 +278,14 @@ export default function Scholarship() {
                 const max = rows?.[0]?.roll_number;
                 const nextRoll = max ? parseInt(max, 10) + 1 : 5100;
 
-                // Fetch available slot hour via RPC
-                let hourSlot = 9;
-                try {
-                    const { data: slotHour, error: slotErr } = await supabase.rpc("get_available_slot");
-                    if (!slotErr && slotHour !== null) {
-                        hourSlot = slotHour;
-                    }
-                } catch (slotErr) {
-                    console.error("Failed to fetch available slot:", slotErr);
-                }
-
-                const timeStr = `${String(hourSlot).padStart(2, "0")}:00`;
-                setDefaultTimeSlot(timeStr);
-                setStudents([createInitialStudentRow(String(nextRoll), timeStr)]);
+                setStudents([createInitialStudentRow(String(nextRoll), "")]);
             } catch (err) {
-                console.error("Failed to fetch next roll number and slot:", err);
-                setStudents([createInitialStudentRow("5100", hourSlot)]);
+                console.error("Failed to fetch next roll number:", err);
+                setStudents([createInitialStudentRow("5100", "")]);
             }
         };
 
-        fetchNextRollNumberAndSlot();
+        fetchNextRollNumber();
     }, [open]);
 
     // Esc key handler to close forms/modals
@@ -421,6 +408,25 @@ export default function Scholarship() {
             timeoutRef.current[index] = setTimeout(() => {
                 checkRollNumberDuplicate(index, value, newStudents);
             }, 500);
+        }
+
+        if (field === "date") {
+            if (value) {
+                // Fetch available slot time via RPC
+                (async () => {
+                    try {
+                        const { data: slotTime, error: slotErr } = await supabase.rpc("get_available_slot", { p_date: value });
+                        if (!slotErr && slotTime) {
+                            const timeStr = slotTime.slice(0, 5);
+                            setStudents(prev => prev.map((s, idx) => idx === index ? { ...s, time: timeStr } : s));
+                        }
+                    } catch (slotErr) {
+                        console.error("Failed to fetch available slot:", slotErr);
+                    }
+                })();
+            } else {
+                setStudents(prev => prev.map((s, idx) => idx === index ? { ...s, time: "" } : s));
+            }
         }
     };
 
