@@ -61,6 +61,7 @@ export default function StaffDashboard() {
     const [originalRoll, setOriginalRoll] = useState(null);
 
     const [showOnlyPresent, setShowOnlyPresent] = useState(false);
+    const [dateFilter, setDateFilter] = useState("");
     const [markingPresent, setMarkingPresent] = useState({});
     const [localScores, setLocalScores] = useState({});
     const saveTimeoutRef = useRef({});
@@ -236,6 +237,10 @@ export default function StaffDashboard() {
                 query = query.eq("present", true);
             }
 
+            if (dateFilter.trim()) {
+                query = query.eq("date", dateFilter.trim());
+            }
+
             const { data: response, count, error } = await query;
             if (error) throw error;
 
@@ -246,7 +251,7 @@ export default function StaffDashboard() {
         } finally {
             setLoading(false);
         }
-    }, [page, selectedBranch, branch, searchQuery, showOnlyPresent, staffId]);
+    }, [page, selectedBranch, branch, searchQuery, showOnlyPresent, dateFilter, staffId]);
 
     // Debounced search trigger
     useEffect(() => {
@@ -582,6 +587,35 @@ export default function StaffDashboard() {
                                 Only Present Students
                             </span>
                         </label>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Filter by Exam Date</label>
+                        <div className="flex items-center gap-2">
+                            <input
+                                id="staff-dashboard-date-filter"
+                                type="date"
+                                value={dateFilter}
+                                onChange={(e) => { setDateFilter(e.target.value); setPage(0); }}
+                                className="flex-1 text-sm font-semibold text-gray-800 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
+                            />
+                            {dateFilter && (
+                                <button
+                                    type="button"
+                                    onClick={() => setDateFilter("")}
+                                    title="Clear date filter"
+                                    className="p-2 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition-colors flex-shrink-0"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            )}
+                        </div>
+                        {dateFilter && (
+                            <span className="text-[10px] font-bold text-purple-600 mt-0.5">
+                                Showing exam date: {new Date(dateFilter + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                            </span>
+                        )}
                     </div>
                     {branch?.toLowerCase() === "all" ? (
                         <Select

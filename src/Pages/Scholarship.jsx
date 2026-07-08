@@ -127,6 +127,7 @@ export default function Scholarship() {
     const [showOnlyPresent, setShowOnlyPresent] = useState(false);
     const [showOnlyOk, setShowOnlyOk] = useState(false);
     const [showOnlyConfirmed, setShowOnlyConfirmed] = useState(false);
+    const [dateFilter, setDateFilter] = useState("");
     const [markingPresent, setMarkingPresent] = useState({});
     const [markingOk, setMarkingOk] = useState({});
     const [localScores, setLocalScores] = useState({});
@@ -359,6 +360,10 @@ export default function Scholarship() {
                 query = query.eq("confirmed", true);
             }
 
+            if (dateFilter.trim()) {
+                query = query.eq("date", dateFilter.trim());
+            }
+
             const { data: response, count, error } = await query;
             if (error) throw error;
 
@@ -369,7 +374,7 @@ export default function Scholarship() {
         } finally {
             setLoading(false);
         }
-    }, [page, selectedBranch, branch, searchQuery, showOnlyPresent, showOnlyOk, showOnlyConfirmed, role, staffId]);
+    }, [page, selectedBranch, branch, searchQuery, showOnlyPresent, showOnlyOk, showOnlyConfirmed, dateFilter, role, staffId]);
 
     // Debounced search trigger
     useEffect(() => {
@@ -532,8 +537,18 @@ export default function Scholarship() {
 
     const handleConfirm = (student) => {
         setConfirmingItem(student);
+        // If the logged-in user belongs to a specific branch, use that;
+        // if they are "all" (manager/owner), pre-fill with the student's own branch,
+        // falling back to "main" if the student's branch is also unset/"all".
+        const defaultBranch =
+            branch && branch.toLowerCase() !== "all"
+                ? branch.toLowerCase()
+                : student.branch && student.branch.toLowerCase() !== "all"
+                    ? student.branch.toLowerCase()
+                    : "main";
         setConfirmFormData({
             roll_number: student.roll_number,
+            branch: defaultBranch,
             course: "MDCA",
             duration: "",
             fee_month: "",
@@ -545,15 +560,22 @@ export default function Scholarship() {
     const executeMigration = async () => {
         if (!confirmingItem) return;
 
+        // Build branch-prefixed roll number (same logic as Students.jsx)
+        const targetBranch = confirmFormData.branch || "main";
+        const branchPrefix = targetBranch.trim() !== ""
+            ? targetBranch.trim().toLowerCase().charAt(0) + "_"
+            : "";
+        const prefixedRoll = `${branchPrefix}${confirmFormData.roll_number}`;
+
         setLoading(true);
         try {
             const { error: insertError } = await supabase.from("students").insert([{
-                roll_number: confirmFormData.roll_number,
+                roll_number: prefixedRoll,
                 student_name: confirmingItem.student_name,
                 father_name: confirmingItem.father_name,
                 mother_name: confirmingItem.mother_name || "—",
                 phone_number: confirmingItem.phone_number,
-                branch: confirmingItem.branch,
+                branch: targetBranch,
                 address: confirmingItem.address || "",
                 course: confirmFormData.course || "General",
                 duration: confirmFormData.duration || null,
@@ -574,7 +596,7 @@ export default function Scholarship() {
 
             setConfirmingItem(null);
             fetchScholarshipPool();
-            alert("Student confirmed and copied to main students list successfully!");
+            alert(`Student confirmed! Added to main list as ${prefixedRoll}.`);
         } catch (error) {
             console.error("Migration error:", error);
             alert("Error during migration: " + error.message);
@@ -820,6 +842,35 @@ export default function Scholarship() {
                             Only Confirmed Students
                         </span>
                     </label>
+                </div>
+                <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Filter by Exam Date</label>
+                    <div className="flex items-center gap-2">
+                        <input
+                            id="scholarship-date-filter"
+                            type="date"
+                            value={dateFilter}
+                            onChange={(e) => { setDateFilter(e.target.value); setPage(0); }}
+                            className="flex-1 text-sm font-semibold text-gray-800 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
+                        />
+                        {dateFilter && (
+                            <button
+                                type="button"
+                                onClick={() => setDateFilter("")}
+                                title="Clear date filter"
+                                className="p-2 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition-colors flex-shrink-0"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        )}
+                    </div>
+                    {dateFilter && (
+                        <span className="text-[10px] font-bold text-purple-600 mt-0.5">
+                            Showing exam date: {new Date(dateFilter + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                        </span>
+                    )}
                 </div>
                 {branch?.toLowerCase() === "all" ? (
                     <Select
@@ -1349,18 +1400,36 @@ export default function Scholarship() {
                 footer={
                     <>
                         <Button variant="outline" onClick={() => setConfirmingItem(null)}>Cancel</Button>
-                        <Button variant="primary" onClick={executeMigration} loading={loading}>Confirm & Copy to Students</Button>
+                        <Button variant="primary" onClick={executeMigration} loading={loading}>Confirm &amp; Copy to Students</Button>
                     </>
                 }
             >
                 <div className="space-y-6">
+                    {/* Branch selection — only editable for all-branch managers */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <Input
-                            label="Roll Number (Keep Same)"
-                            value={confirmFormData.roll_number}
-                            disabled
-                            required
+                        <Select
+                            label="Branch"
+                            value={confirmFormData.branch || "main"}
+                            onChange={(e) => setConfirmFormData({ ...confirmFormData, branch: e.target.value })}
+                            options={branchOptions}
+                            disabled={branch?.toLowerCase() !== "all"}
                         />
+                        {/* Read-only prefixed roll number preview */}
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Roll Number (with prefix)</label>
+                            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
+                                <span className="text-xs font-black text-purple-600 bg-purple-100 px-2 py-0.5 rounded-lg">
+                                    {confirmFormData.branch
+                                        ? confirmFormData.branch.trim().toLowerCase().charAt(0) + "_"
+                                        : "m_"}
+                                </span>
+                                <span className="text-sm font-black text-gray-800">{confirmFormData.roll_number}</span>
+                            </div>
+                            <span className="text-[10px] text-gray-400">Final: <strong>{confirmFormData.branch ? confirmFormData.branch.trim().toLowerCase().charAt(0) + "_" : "m_"}{confirmFormData.roll_number}</strong></span>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <Input
                             label="Course"
                             value={confirmFormData.course}
