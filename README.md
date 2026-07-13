@@ -1,16 +1,62 @@
-# React + Vite
+# VCE Portal
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Internal management portal for Vintech Computer Education (VCE), Bareilly.
 
-Currently, two official plugins are available:
+## Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- React + Vite
+- Tailwind CSS
+- Supabase
 
-## React Compiler
+## Getting Started
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Prerequisites
+- Node.js 18+
+- Access to the project's environment configuration (request from a maintainer — not included in this repo)
 
-## Expanding the ESLint configuration
+### Setup
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+git clone https://github.com/vce-edu/portal.git
+cd portal
+npm install
+```
+
+Copy `.env.example` (if present) or request a `.env` file from a maintainer. Do not commit `.env` or any credentials to this repository.
+
+### Development
+
+```bash
+npm run dev
+```
+
+### Build
+
+```bash
+npm run build
+npm run preview
+```
+
+### Lint
+
+```bash
+npm run lint
+```
+
+## Deployment
+
+```bash
+npm run deploy
+```
+
+## Access
+
+This is a private, authenticated system. Access is role-based and restricted to authorized staff. Contact a maintainer for account provisioning.
+
+## Contributing
+
+This is a private/internal project. Please coordinate with the maintainers before opening issues or pull requests.
+
+## License
+
+All rights reserved by Vintech Computer Education.
