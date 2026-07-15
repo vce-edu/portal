@@ -19,6 +19,7 @@ const branchOptions = [
     { value: "main", label: "Main" },
     { value: "second", label: "Second" },
     { value: "third", label: "Third" }
+    { value: "agra", label: "Agra" }
 ];
 
 const compressImage = (file, quality = 0.7, maxWidth = 1024, maxHeight = 1024) => {

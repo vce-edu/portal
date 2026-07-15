@@ -21,8 +21,58 @@ const branchOptions = [
     { value: "third", label: "Third" }
 ];
 
+const compressImage = (file, quality = 0.7, maxWidth = 1024, maxHeight = 1024) => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                let width = img.width;
+                let height = img.height;
+
+                if (width > maxWidth || height > maxHeight) {
+                    if (width > height) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    } else {
+                        width = Math.round((width * maxHeight) / height);
+                        height = maxHeight;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob(
+                    (blob) => {
+                        if (blob) {
+                            const compressedFile = new File([blob], file.name, {
+                                type: "image/jpeg",
+                                lastModified: Date.now(),
+                            });
+                            resolve(compressedFile);
+                        } else {
+                            reject(new Error("Canvas toBlob failed"));
+                        }
+                    },
+                    "image/jpeg",
+                    quality
+                );
+            };
+            img.onerror = (err) => reject(err);
+        };
+        reader.onerror = (err) => reject(err);
+    });
+};
+
 export default function StaffDashboard() {
-    const { user, staffId, branch } = useAuth();
+    const { user, staffId, branch, role } = useAuth();
     const userName = user?.user_metadata?.display_name || "User";
 
     const [data, setData] = useState([]);
@@ -58,12 +108,31 @@ export default function StaffDashboard() {
         time: "",
         present: "false",
         staff_id: null,
+        photo: null,
+        ok: false,
+        confirmed: false,
     });
     const [originalRoll, setOriginalRoll] = useState(null);
+    const [editRollError, setEditRollError] = useState("");
+    const editTimeoutRef = useRef(null);
+
+    // Migration Modal State
+    const [confirmingItem, setConfirmingItem] = useState(null);
+    const [confirmFormData, setConfirmFormData] = useState({
+        roll_number: "",
+        course: "MDCA",
+        duration: "",
+        fee_month: "",
+        batch_time: "",
+        admission_date: new Date().toISOString().split("T")[0]
+    });
 
     const [showOnlyPresent, setShowOnlyPresent] = useState(false);
+    const [showOnlyOk, setShowOnlyOk] = useState(false);
+    const [showOnlyConfirmed, setShowOnlyConfirmed] = useState(false);
     const [dateFilter, setDateFilter] = useState("");
     const [markingPresent, setMarkingPresent] = useState({});
+    const [markingOk, setMarkingOk] = useState({});
     const [localScores, setLocalScores] = useState({});
     const saveTimeoutRef = useRef({});
 
@@ -219,11 +288,12 @@ export default function StaffDashboard() {
                 if (open) setOpen(false);
                 if (editStudent) setEditStudent(null);
                 if (viewStudent) setViewStudent(null);
+                if (confirmingItem) setConfirmingItem(null);
             }
         };
         window.addEventListener("keydown", handleEsc);
         return () => window.removeEventListener("keydown", handleEsc);
-    }, [open, editStudent, viewStudent]);
+    }, [open, editStudent, viewStudent, confirmingItem]);
 
     // Fetch scholarship records
     const fetchScholarshipPool = useCallback(async () => {
@@ -245,11 +315,28 @@ export default function StaffDashboard() {
             }
 
             if (searchQuery.trim()) {
-                query = query.or(`roll_number.ilike.%${searchQuery}%,student_name.ilike.%${searchQuery}%,father_name.ilike.%${searchQuery}%`);
+                const term = searchQuery.trim();
+                let orConditions = `roll_number.ilike.%${term}%,student_name.ilike.%${term}%,father_name.ilike.%${term}%`;
+
+                // Allow searching via staff_id
+                const cleanNum = term.replace(/^#/, "");
+                const parsedInt = parseInt(cleanNum, 10);
+                if (!isNaN(parsedInt) && /^\d+$/.test(cleanNum)) {
+                    orConditions += `,staff_id.eq.${parsedInt}`;
+                }
+                query = query.or(orConditions);
             }
 
             if (showOnlyPresent) {
                 query = query.eq("present", true);
+            }
+
+            if (showOnlyOk) {
+                query = query.eq("ok", true);
+            }
+
+            if (showOnlyConfirmed) {
+                query = query.eq("confirmed", true);
             }
 
             if (dateFilter.trim()) {
@@ -266,7 +353,7 @@ export default function StaffDashboard() {
         } finally {
             setLoading(false);
         }
-    }, [page, selectedBranch, branch, searchQuery, showOnlyPresent, dateFilter, staffId]);
+    }, [page, selectedBranch, branch, searchQuery, showOnlyPresent, showOnlyOk, showOnlyConfirmed, dateFilter, staffId]);
 
     // Debounced search trigger
     useEffect(() => {
@@ -401,15 +488,30 @@ export default function StaffDashboard() {
             for (let i = 0; i < students.length; i++) {
                 const s = students[i];
                 if (s.photo) {
-                    const fileExt = s.photo.name.split('.').pop();
+                    // Logical limitation: only images allowed, size limit 10MB before compression
+                    if (!s.photo.type.startsWith("image/")) {
+                        throw new Error(`File selected for ${s.studentName} is not a valid image.`);
+                    }
+                    if (s.photo.size > 10 * 1024 * 1024) {
+                        throw new Error(`Photo for ${s.studentName} exceeds the maximum size limit of 10MB.`);
+                    }
+
+                    let fileToUpload = s.photo;
+                    try {
+                        fileToUpload = await compressImage(s.photo, 0.7, 1024, 1024);
+                    } catch (compressErr) {
+                        console.error(`Compression failed for ${s.studentName}, using original photo:`, compressErr);
+                    }
+
+                    const fileExt = fileToUpload.name.split('.').pop();
                     const fileName = `${s.rollNumber.trim()}_${s.studentName.trim()}.${fileExt}`;
-                    
+
                     const { error: uploadError } = await secSupabase.storage
                         .from("student-photos")
-                        .upload(fileName, s.photo, {
+                        .upload(fileName, fileToUpload, {
                             upsert: true,
                         });
-                    
+
                     if (uploadError) {
                         throw new Error(`Failed to upload photo for ${s.studentName}: ${uploadError.message}`);
                     }
@@ -426,6 +528,99 @@ export default function StaffDashboard() {
         } catch (err) {
             alert("Error adding students: " + err.message);
             console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleMarkOk = async (rollNumber, currentOkStatus) => {
+        setMarkingOk(prev => ({ ...prev, [rollNumber]: true }));
+        try {
+            const nextOk = !currentOkStatus;
+            const { error } = await supabase
+                .from("scholarship_students")
+                .update({ ok: nextOk })
+                .eq("roll_number", rollNumber);
+
+            if (error) throw error;
+
+            setData(prev =>
+                prev.map(student =>
+                    student.roll_number === rollNumber ? { ...student, ok: nextOk } : student
+                )
+            );
+        } catch (err) {
+            console.error("Error updating OK status:", err);
+            alert("Error: " + err.message);
+        } finally {
+            setMarkingOk(prev => ({ ...prev, [rollNumber]: false }));
+        }
+    };
+
+    const handleConfirm = (student) => {
+        setConfirmingItem(student);
+        const defaultBranch =
+            branch && branch.toLowerCase() !== "all"
+                ? branch.toLowerCase()
+                : student.branch && student.branch.toLowerCase() !== "all"
+                    ? student.branch.toLowerCase()
+                    : "main";
+        setConfirmFormData({
+            roll_number: student.roll_number,
+            branch: defaultBranch,
+            course: "MDCA",
+            duration: "",
+            fee_month: "",
+            batch_time: "",
+            admission_date: new Date().toISOString().split("T")[0]
+        });
+    };
+
+    const executeMigration = async () => {
+        if (!confirmingItem) return;
+        if (role !== "manager" && role !== "owner") {
+            alert("Unauthorized: Only managers or owners can confirm admission.");
+            return;
+        }
+
+        const targetBranch = confirmFormData.branch || "main";
+        const branchPrefix = targetBranch.trim() !== ""
+            ? targetBranch.trim().toLowerCase().charAt(0) + "_"
+            : "";
+        const prefixedRoll = `${branchPrefix}${confirmFormData.roll_number}`;
+
+        setLoading(true);
+        try {
+            const { error: insertError } = await supabase.from("students").insert([{
+                roll_number: prefixedRoll,
+                student_name: confirmingItem.student_name,
+                father_name: confirmingItem.father_name,
+                mother_name: confirmingItem.mother_name || "—",
+                phone_number: confirmingItem.phone_number,
+                branch: targetBranch,
+                address: confirmingItem.address || "",
+                course: confirmFormData.course || "General",
+                duration: confirmFormData.duration || null,
+                fee_month: confirmFormData.fee_month ? parseFloat(confirmFormData.fee_month) : null,
+                addmission_date: confirmFormData.admission_date,
+                batch_time: confirmFormData.batch_time || null
+            }]);
+
+            if (insertError) throw insertError;
+
+            const { error: updateError } = await supabase
+                .from("scholarship_students")
+                .update({ confirmed: true })
+                .eq("roll_number", confirmingItem.roll_number);
+
+            if (updateError) throw updateError;
+
+            setConfirmingItem(null);
+            fetchScholarshipPool();
+            alert(`Student confirmed! Added to main list as ${prefixedRoll}.`);
+        } catch (error) {
+            console.error("Migration error:", error);
+            alert("Error during migration: " + error.message);
         } finally {
             setLoading(false);
         }
@@ -450,6 +645,7 @@ export default function StaffDashboard() {
 
     const openUpdateModal = (student) => {
         setOriginalRoll(student.roll_number);
+        setEditRollError("");
         setEditForm({
             roll_number: student.roll_number,
             student_name: student.student_name,
@@ -463,13 +659,99 @@ export default function StaffDashboard() {
             time: student.time ? student.time.slice(0, 5) : "",
             present: student.present ? "true" : "false",
             staff_id: student.staff_id,
+            photo: null,
+            ok: student.ok || false,
+            confirmed: student.confirmed || false,
         });
         setEditStudent(student);
     };
 
+    const handleEditRollChange = (val) => {
+        setEditForm(prev => ({ ...prev, roll_number: val }));
+
+        if (editTimeoutRef.current) {
+            clearTimeout(editTimeoutRef.current);
+        }
+
+        editTimeoutRef.current = setTimeout(async () => {
+            const trimmed = val.trim();
+            if (!trimmed) {
+                setEditRollError("");
+                return;
+            }
+            if (trimmed === originalRoll.trim()) {
+                setEditRollError("");
+                return;
+            }
+            try {
+                const { data: duplicateData } = await supabase
+                    .from("scholarship_students")
+                    .select("roll_number")
+                    .eq("roll_number", trimmed)
+                    .maybeSingle();
+
+                if (duplicateData) {
+                    setEditRollError("Already exists in database");
+                } else {
+                    setEditRollError("");
+                }
+            } catch (err) {
+                console.error("Duplicate check error:", err);
+            }
+        }, 500);
+    };
+
     const handleUpdate = async () => {
+        if (editRollError) {
+            alert("Please resolve the roll number error before updating.");
+            return;
+        }
+
         setLoading(true);
         try {
+            // Double-check duplicate roll number in database if changed
+            if (editForm.roll_number.trim() !== originalRoll.trim()) {
+                const { data: existing } = await supabase
+                    .from("scholarship_students")
+                    .select("roll_number")
+                    .eq("roll_number", editForm.roll_number.trim())
+                    .maybeSingle();
+                if (existing) {
+                    alert("Roll number already exists in database!");
+                    setLoading(false);
+                    return;
+                }
+            }
+
+            if (editForm.photo) {
+                if (!editForm.photo.type.startsWith("image/")) {
+                    throw new Error("File selected is not a valid image.");
+                }
+                if (editForm.photo.size > 10 * 1024 * 1024) {
+                    throw new Error("Photo exceeds the maximum size limit of 10MB.");
+                }
+
+                let fileToUpload = editForm.photo;
+                try {
+                    fileToUpload = await compressImage(editForm.photo, 0.7, 1024, 1024);
+                } catch (compressErr) {
+                    console.error("Compression failed, using original photo:", compressErr);
+                }
+
+                const fileExt = fileToUpload.name.split('.').pop();
+                const fileName = `${editForm.roll_number.trim()}_${editForm.student_name.trim()}.${fileExt}`;
+
+                const { error: uploadError } = await secSupabase.storage
+                    .from("student-photos")
+                    .upload(fileName, fileToUpload, {
+                        upsert: true,
+                    });
+
+                if (uploadError) {
+                    throw new Error(`Failed to upload photo: ${uploadError.message}`);
+                }
+            }
+
             const { error } = await supabase
                 .from("scholarship_students")
                 .update({
@@ -484,6 +766,8 @@ export default function StaffDashboard() {
                     date: editForm.date,
                     time: editForm.time ? `${editForm.time}:00` : null,
                     present: editForm.present === "true",
+                    ok: editForm.ok,
+                    confirmed: editForm.confirmed,
                 })
                 .eq("roll_number", originalRoll);
 
@@ -609,7 +893,7 @@ export default function StaffDashboard() {
                             )}
                         />
                     </div>
-                    <div className="flex items-center justify-start md:justify-center gap-3">
+                    <div className="flex flex-col gap-2 justify-center">
                         <label className="flex items-center gap-3 cursor-pointer select-none">
                             <input
                                 type="checkbox"
@@ -619,6 +903,28 @@ export default function StaffDashboard() {
                             />
                             <span className="text-xs font-black text-purple-950 uppercase tracking-wider">
                                 Only Present Students
+                            </span>
+                        </label>
+                        <label className="flex items-center gap-3 cursor-pointer select-none">
+                            <input
+                                type="checkbox"
+                                checked={showOnlyOk}
+                                onChange={(e) => setShowOnlyOk(e.target.checked)}
+                                className="w-5 h-5 rounded-lg border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                            />
+                            <span className="text-xs font-black text-purple-950 uppercase tracking-wider">
+                                Only OK Students
+                            </span>
+                        </label>
+                        <label className="flex items-center gap-3 cursor-pointer select-none">
+                            <input
+                                type="checkbox"
+                                checked={showOnlyConfirmed}
+                                onChange={(e) => setShowOnlyConfirmed(e.target.checked)}
+                                className="w-5 h-5 rounded-lg border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                            />
+                            <span className="text-xs font-black text-purple-950 uppercase tracking-wider">
+                                Only Confirmed Students
                             </span>
                         </label>
                     </div>
@@ -848,7 +1154,24 @@ export default function StaffDashboard() {
                                                 </span>
                                             </TD>
                                             <TD className="py-5 font-black text-gray-900 group-hover:text-emerald-700 transition-colors">
-                                                {student.student_name}
+                                                <div className="flex items-center gap-2">
+                                                    {student.confirmed && (
+                                                        <div className="flex items-center -space-x-1 shrink-0" title="Confirmed Student">
+                                                            <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3.5} d="M5 13l4 4L19 7" />
+                                                            </svg>
+                                                            <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3.5} d="M5 13l4 4L19 7" />
+                                                            </svg>
+                                                        </div>
+                                                    )}
+                                                    {student.ok && (
+                                                        <svg className="w-5 h-5 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" title="Verified OK">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                    )}
+                                                    <span>{student.student_name}</span>
+                                                </div>
                                             </TD>
                                             <TD className="py-5">
                                                 <div className="flex flex-col text-xs">
@@ -887,14 +1210,25 @@ export default function StaffDashboard() {
                                                 <div className="flex justify-end items-center gap-1.5">
                                                     <Button
                                                         size="sm"
+                                                        variant={student.ok ? "secondary" : "primary"}
+                                                        disabled={markingOk[student.roll_number]}
+                                                        onClick={() => handleMarkOk(student.roll_number, student.ok)}
+                                                        className={`${student.ok
+                                                            ? "bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200"
+                                                            : "bg-blue-600 hover:bg-blue-700 text-white"
+                                                            } font-bold py-1.5 px-3 rounded-lg text-xs`}
+                                                    >
+                                                        {markingOk[student.roll_number] ? "Saving..." : student.ok ? "OK ✓" : "OK"}
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
                                                         variant="primary"
                                                         disabled={student.present || markingPresent[student.roll_number]}
                                                         onClick={() => handleMarkPresent(student.roll_number)}
-                                                        className={`${
-                                                            student.present
-                                                                ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
-                                                                : "bg-emerald-600 hover:bg-emerald-700 text-white"
-                                                        } font-bold py-1.5 px-3 rounded-lg text-xs`}
+                                                        className={`${student.present
+                                                            ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
+                                                            : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                                            } font-bold py-1.5 px-3 rounded-lg text-xs`}
                                                     >
                                                         {markingPresent[student.roll_number] ? "Saving..." : "Present"}
                                                     </Button>
@@ -909,6 +1243,20 @@ export default function StaffDashboard() {
                                                         }}
                                                         className="w-20 px-2 py-1.5 text-xs border border-gray-200 rounded-lg text-center outline-none focus:ring-2 focus:ring-purple-200 placeholder:text-gray-300 font-bold bg-white text-gray-700"
                                                     />
+                                                    {(role === "owner" || role === "manager") && (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="primary"
+                                                            disabled={student.confirmed}
+                                                            onClick={() => handleConfirm(student)}
+                                                            className={`${student.confirmed
+                                                                ? "bg-purple-100 text-purple-400 border border-purple-200 cursor-not-allowed"
+                                                                : "bg-purple-600 hover:bg-purple-700 text-white"
+                                                                } font-bold py-1.5 px-3 rounded-lg text-xs`}
+                                                        >
+                                                            Confirm
+                                                        </Button>
+                                                    )}
                                                     <Button
                                                         size="sm"
                                                         variant="outline"
@@ -1002,6 +1350,8 @@ export default function StaffDashboard() {
                             <DetailRow label="Time" value={viewStudent.time ? viewStudent.time.slice(0, 5) : "-"} />
                             {viewStudent.score !== null && <DetailRow label="Score" value={viewStudent.score} />}
                             <DetailRow label="Present Status" value={viewStudent.present ? "True" : "False"} />
+                            <DetailRow label="OK Status" value={viewStudent.ok ? "True" : "False"} />
+                            <DetailRow label="Confirmed Status" value={viewStudent.confirmed ? "True" : "False"} />
                         </div>
                         <Button variant="secondary" className="w-full mt-4" onClick={() => setViewStudent(null)}>Close</Button>
                     </div>
@@ -1024,8 +1374,9 @@ export default function StaffDashboard() {
                     <Input
                         label="Roll Number"
                         value={editForm.roll_number}
-                        onChange={(e) => setEditForm({ ...editForm, roll_number: e.target.value })}
+                        onChange={(e) => handleEditRollChange(e.target.value)}
                         required
+                        error={editRollError}
                     />
                     <Input
                         label="Full Name"
@@ -1100,6 +1451,118 @@ export default function StaffDashboard() {
                         ]}
                         required
                     />
+                    <Input
+                        label="Student Photo"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setEditForm({ ...editForm, photo: e.target.files?.[0] || null })}
+                    />
+                    <Select
+                        label="OK Status"
+                        value={editForm.ok ? "true" : "false"}
+                        onChange={(e) => setEditForm({ ...editForm, ok: e.target.value === "true" })}
+                        options={[
+                            { value: "true", label: "True" },
+                            { value: "false", label: "False" }
+                        ]}
+                        required
+                    />
+                    <Select
+                        label="Confirmed Status"
+                        value={editForm.confirmed ? "true" : "false"}
+                        onChange={(e) => setEditForm({ ...editForm, confirmed: e.target.value === "true" })}
+                        options={[
+                            { value: "true", label: "True" },
+                            { value: "false", label: "False" }
+                        ]}
+                        required
+                    />
+                </div>
+            </Modal>
+
+            {/* CONFIRMATION / MIGRATION MODAL */}
+            <Modal
+                isOpen={!!confirmingItem}
+                onClose={() => setConfirmingItem(null)}
+                title="Confirm Student Admission"
+                footer={
+                    <>
+                        <Button variant="outline" onClick={() => setConfirmingItem(null)}>Cancel</Button>
+                        <Button variant="primary" onClick={executeMigration} loading={loading}>Confirm &amp; Copy to Students</Button>
+                    </>
+                }
+            >
+                <div className="space-y-6">
+                    {/* Branch selection — only editable for all-branch managers */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <Select
+                            label="Branch"
+                            value={confirmFormData.branch || "main"}
+                            onChange={(e) => setConfirmFormData({ ...confirmFormData, branch: e.target.value })}
+                            options={branchOptions}
+                            disabled={branch?.toLowerCase() !== "all"}
+                        />
+                        {/* Read-only prefixed roll number preview */}
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Roll Number (with prefix)</label>
+                            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
+                                <span className="text-xs font-black text-purple-600 bg-purple-100 px-2 py-0.5 rounded-lg">
+                                    {confirmFormData.branch
+                                        ? confirmFormData.branch.trim().toLowerCase().charAt(0) + "_"
+                                        : "m_"}
+                                </span>
+                                <span className="text-sm font-black text-gray-800">{confirmFormData.roll_number}</span>
+                            </div>
+                            <span className="text-[10px] text-gray-400">Final: <strong>{confirmFormData.branch ? confirmFormData.branch.trim().toLowerCase().charAt(0) + "_" : "m_"}{confirmFormData.roll_number}</strong></span>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <Input
+                            label="Course"
+                            value={confirmFormData.course}
+                            onChange={(e) => setConfirmFormData({ ...confirmFormData, course: e.target.value })}
+                            required
+                        />
+                        <Input
+                            label="Duration"
+                            value={confirmFormData.duration}
+                            onChange={(e) => setConfirmFormData({ ...confirmFormData, duration: e.target.value })}
+                            placeholder="e.g. 6 Months"
+                        />
+                        <Input
+                            label="Fee Month"
+                            type="number"
+                            value={confirmFormData.fee_month}
+                            onChange={(e) => setConfirmFormData({ ...confirmFormData, fee_month: e.target.value })}
+                            placeholder="e.g. 1500"
+                        />
+                        <Input
+                            label="Batch Time"
+                            value={confirmFormData.batch_time}
+                            onChange={(e) => setConfirmFormData({ ...confirmFormData, batch_time: e.target.value })}
+                            placeholder="e.g. 10:00 AM - 12:00 PM"
+                        />
+                        <Input
+                            label="Admission Date"
+                            type="date"
+                            value={confirmFormData.admission_date}
+                            onChange={(e) => setConfirmFormData({ ...confirmFormData, admission_date: e.target.value })}
+                        />
+                    </div>
+
+                    {confirmingItem && (
+                        <div className="p-6 bg-purple-50/50 rounded-3xl border border-purple-100 flex items-center gap-6">
+                            <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center text-2xl shadow-sm">🎓</div>
+                            <div>
+                                <p className="text-xs font-black text-purple-900/40 uppercase tracking-[0.2em] mb-1">Student Details</p>
+                                <p className="text-lg font-black text-gray-900">{confirmingItem.student_name}</p>
+                                <p className="text-sm font-black text-purple-600 uppercase tracking-tight">
+                                    {confirmingItem.branch} • {confirmingItem.phone_number}
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </Modal>
         </div>
