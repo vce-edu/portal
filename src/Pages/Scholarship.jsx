@@ -18,7 +18,7 @@ const genderOptions = [
 const branchOptions = [
     { value: "main", label: "Main" },
     { value: "second", label: "Second" },
-    { value: "third", label: "Third" }
+    { value: "third", label: "Third" },
     { value: "agra", label: "Agra" }
 ];
 

@@ -24,6 +24,10 @@ const CURRENCY = "₹";
 
 const parseDateStr = (dateStr) => {
   if (!dateStr) return null;
+  if (dateStr.includes("-")) {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  }
   const [d, m, y] = dateStr.split("/").map(Number);
   return new Date(y, m - 1, d);
 };
@@ -127,23 +131,79 @@ export default function Revenue() {
     prevStart.setDate(prevStart.getDate() - diffDays + 1);
 
     try {
-      const { data, error } = await supabase
-        .from("transaction")
-        .select("*")
-        .order("id", { ascending: false });
+      const startYear = startObj.getFullYear();
+      const endYear = endObj.getFullYear();
+      const prevStartYear = prevStart.getFullYear();
+      const prevEndYear = prevEnd.getFullYear();
 
-      if (error) throw error;
+      const minYear = Math.min(startYear, prevStartYear);
+      const maxYear = Math.max(endYear, prevEndYear);
 
-      const filteredCurrent = data.filter((t) => {
+      const years = [];
+      for (let y = minYear; y <= maxYear; y++) {
+        years.push(y);
+      }
+
+      const orConditions = [];
+      years.forEach((y) => {
+        orConditions.push(`paid_on.like.%/${y}`);
+        orConditions.push(`paid_on.like.${y}-%`);
+      });
+      const orFilters = orConditions.join(",");
+
+      let allData = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        let query = supabase
+          .from("transaction")
+          .select("*")
+          .order("id", { ascending: false })
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (orFilters) {
+          query = query.or(orFilters);
+        }
+
+        if (selectedBranch !== "Total (All Branches)") {
+          const prefix = selectedBranch.charAt(0).toLowerCase() + "_";
+          query = query.ilike("roll_no", `${prefix}%`);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          allData = [...allData, ...data];
+          if (data.length < pageSize) {
+            hasMore = false;
+          } else {
+            page++;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      const processedData = allData.map((t) => {
         const d = parseDateStr(t.paid_on);
-        const matchesBranch = selectedBranch === "Total (All Branches)" || t.roll_no?.startsWith(selectedBranch.charAt(0).toLowerCase() + "_");
-        return d >= startObj && d <= endObj && matchesBranch;
+        return {
+          ...t,
+          parsedDate: d,
+          normalizedPaidOn: d ? formatDateStr(d) : null
+        };
       });
 
-      const filteredPrev = data.filter((t) => {
-        const d = parseDateStr(t.paid_on);
-        const matchesBranch = selectedBranch === "Total (All Branches)" || t.roll_no?.startsWith(selectedBranch.charAt(0).toLowerCase() + "_");
-        return d >= prevStart && d <= prevEnd && matchesBranch;
+      const filteredCurrent = processedData.filter((t) => {
+        const d = t.parsedDate;
+        return d && d >= startObj && d <= endObj;
+      });
+
+      const filteredPrev = processedData.filter((t) => {
+        const d = t.parsedDate;
+        return d && d >= prevStart && d <= prevEnd;
       });
 
       setTransactions(filteredCurrent);
@@ -177,12 +237,13 @@ export default function Revenue() {
     // Peak Earning
     const dayMap = {};
     transactions.forEach((t) => {
-      dayMap[t.paid_on] = (dayMap[t.paid_on] || 0) + Number(t.amount_paid);
+      const key = t.normalizedPaidOn || t.paid_on;
+      dayMap[key] = (dayMap[key] || 0) + Number(t.amount_paid || 0);
     });
     const peakDay = Object.entries(dayMap).reduce((peak, [date, amt]) => (amt > peak.amt ? { date, amt } : peak), { date: "—", amt: 0 });
 
     // Daily Avg
-    const uniqueDays = new Set(transactions.map((t) => t.paid_on)).size || 1;
+    const uniqueDays = new Set(transactions.map((t) => t.normalizedPaidOn || t.paid_on)).size || 1;
     const dailyAvg = total / uniqueDays;
 
     return {
@@ -205,14 +266,14 @@ export default function Revenue() {
 
     while (curr <= end) {
       const dateStr = formatDateStr(curr);
-      const currentAmt = transactions.filter((t) => t.paid_on === dateStr).reduce((s, t) => s + Number(t.amount_paid), 0);
+      const currentAmt = transactions.filter((t) => (t.normalizedPaidOn || t.paid_on) === dateStr).reduce((s, t) => s + Number(t.amount_paid || 0), 0);
 
       // For comparison line, we subtract the exact period duration to find corresponding prev date
       const daysDiff = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
       const prevDateObj = new Date(curr);
       prevDateObj.setDate(prevDateObj.getDate() - daysDiff);
       const prevDateStr = formatDateStr(prevDateObj);
-      const prevAmt = prevTransactions.filter((t) => t.paid_on === prevDateStr).reduce((s, t) => s + Number(t.amount_paid), 0);
+      const prevAmt = prevTransactions.filter((t) => (t.normalizedPaidOn || t.paid_on) === prevDateStr).reduce((s, t) => s + Number(t.amount_paid || 0), 0);
 
       dataArr.push({
         name: curr.toLocaleDateString('default', { month: 'short', day: '2-digit' }),
@@ -229,7 +290,7 @@ export default function Revenue() {
     branches.forEach(b => map[b] = 0);
     transactions.forEach(t => {
       const b = branches.find(bn => t.roll_no?.startsWith(bn.charAt(0).toLowerCase() + "_"));
-      if (b) map[b] += Number(t.amount_paid);
+      if (b) map[b] += Number(t.amount_paid || 0);
     });
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [transactions, branches]);
