@@ -1335,6 +1335,11 @@ export default function Students() {
           <Input label="Father Name" value={editForm.father_name} onChange={(e) => setEditForm({ ...editForm, father_name: e.target.value })} />
           <Input label="Mother Name" value={editForm.mother_name} onChange={(e) => setEditForm({ ...editForm, mother_name: e.target.value })} />
           <Input label="Course" value={editForm.course} onChange={(e) => setEditForm({ ...editForm, course: e.target.value })} />
+          <Input
+            label="Branch"
+            value={editForm.branch || ""}
+            onChange={(e) => setEditForm({ ...editForm, branch: e.target.value.toLowerCase() })}
+          />
           <BatchTimePicker
             label="Batch Time"
             value={editForm.batch_time}
