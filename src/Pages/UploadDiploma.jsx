@@ -12,7 +12,20 @@ const ALLOWED_MIME = "application/pdf";
 const BUCKET = "diplomas";
 
 const INSTITUTE_NAME = "VINTECH COMPUTER EDUCATION";
-const INSTITUTE_ADDRESS = "ADDRESS : DHORA ROAD, BAREILLY";
+
+const BRANCH_ADDRESS_BY_PREFIX = {
+    m_: "ADDRESS : DHORA ROAD, BAREILLY",
+    s_: "ADDRESS : GREEN PARK, BAREILLY",
+    t_: "ADDRESS : BHUTA, BAREILLY",
+    a_: "ADDRESS : AGRA",
+};
+const DEFAULT_INSTITUTE_ADDRESS = "ADDRESS : DHORA ROAD, BAREILLY";
+
+function getInstituteAddress(rollNumber) {
+    if (!rollNumber) return DEFAULT_INSTITUTE_ADDRESS;
+    const prefix = rollNumber.toLowerCase().match(/^[a-z]+_/)?.[0];
+    return (prefix && BRANCH_ADDRESS_BY_PREFIX[prefix]) || DEFAULT_INSTITUTE_ADDRESS;
+}
 const INSTITUTE_REGD_NO = "3177";
 const INSTITUTE_VERIFY_URL = "Online Certificate Verification - Vintecheducation.in";
 const DIRECTOR_NAME = "Manish Vishwakarma";
@@ -117,9 +130,8 @@ function generateDiplomaPDF(data) {
     doc.text(INSTITUTE_NAME, pageWidth / 2 + 20, inner + 38, { align: "center" });
     doc.setFont("times", "normal");
     doc.setFontSize(11);
-    doc.text(INSTITUTE_ADDRESS, pageWidth / 2 + 20, inner + 56, { align: "center" });
+    doc.text(getInstituteAddress(data.rollNumber), pageWidth / 2 + 20, inner + 56, { align: "center" });
     doc.text(`REGD. NO. ${INSTITUTE_REGD_NO}`, pageWidth / 2 + 20, inner + 72, { align: "center" });
-
     let y = inner + 110;
 
     // ── Marksheet / Certificate / Roll numbers ──
