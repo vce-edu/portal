@@ -40,10 +40,10 @@ const printReceipt = (receipt) => {
             background: #fff;
           }
           .receipt-container {
-            max-width: 340px;
-            margin: 50px 0 0 0;
+            max-width: 100%;
+            margin: 20px 0 0 0;
             border: 1px dashed #7c3aed;
-            padding: 20px;
+            padding: 12px 16px;
             border-radius: 8px;
             background: #fff;
             box-sizing: border-box;
@@ -54,8 +54,8 @@ const printReceipt = (receipt) => {
           .header {
             text-align: center;
             border-bottom: 2px solid #7c3aed;
-            padding-bottom: 8px;
-            margin-bottom: 15px;
+            padding-bottom: 6px;
+            margin-bottom: 8px;
           }
           .logo {
             font-size: 15px;
@@ -80,14 +80,14 @@ const printReceipt = (receipt) => {
           .details-grid {
             display: flex;
             flex-direction: column;
-            gap: 8px;
-            margin-bottom: 15px;
+            gap: 4px;
+            margin-bottom: 8px;
           }
           .detail-item {
             font-size: 12px;
             display: flex;
             justify-content: space-between;
-            line-height: 1.3;
+            line-height: 1.1;
           }
           .label {
             font-weight: 600;
@@ -100,8 +100,8 @@ const printReceipt = (receipt) => {
           .fee-row {
             border-top: 1px solid #e5e7eb;
             border-bottom: 1px solid #e5e7eb;
-            padding: 8px 0;
-            margin-bottom: 15px;
+            padding: 4px 0;
+            margin-bottom: 8px;
             display: flex;
             justify-content: space-between;
             font-size: 12px;
@@ -116,7 +116,7 @@ const printReceipt = (receipt) => {
           }
           .total-box {
             background: #f3f4f6;
-            padding: 10px;
+            padding: 6px 10px;
             border-radius: 6px;
             display: flex;
             justify-content: space-between;
@@ -138,9 +138,9 @@ const printReceipt = (receipt) => {
             text-align: center;
             font-size: 9px;
             color: #9ca3af;
-            margin-top: 20px;
+            margin-top: 10px;
             border-top: 1px dashed #e5e7eb;
-            padding-top: 8px;
+            padding-top: 4px;
           }
           @media print {
             body {
