@@ -132,6 +132,7 @@ function generateDiplomaPDF(data) {
     doc.setFontSize(11);
     doc.text(getInstituteAddress(data.rollNumber), pageWidth / 2 + 20, inner + 56, { align: "center" });
     doc.text(`REGD. NO. ${INSTITUTE_REGD_NO}`, pageWidth / 2 + 20, inner + 72, { align: "center" });
+
     let y = inner + 110;
 
     // ── Marksheet / Certificate / Roll numbers ──
@@ -144,14 +145,59 @@ function generateDiplomaPDF(data) {
     doc.text(`Roll No. ${data.rollNumber || "................."}`, inner + 20, y);
     y += 26;
 
-    // ── Title band ──
+    // ── Student Photo (right side, aligned with title band) ──
+    const photoW = 65;
+    const photoH = 80;
+    const photoX = pageWidth - inner - 20 - photoW;
+    // Center the photo vertically across: title band + issued year line (≈ 26 + 28 + 20 = 74 pts)
+    const photoY = y - 20
+
+    const getBase64ImageFormat = (base64) => {
+        if (!base64) return "JPEG";
+        const match = base64.match(/^data:image\/(\w+);base64,/);
+        if (match) {
+            const ext = match[1].toUpperCase();
+            if (ext === "JPG") return "JPEG";
+            return ext;
+        }
+        return "JPEG";
+    };
+
+    if (data.studentPhotoBase64) {
+        try {
+            const photoFormat = getBase64ImageFormat(data.studentPhotoBase64);
+            doc.addImage(data.studentPhotoBase64, photoFormat, photoX, photoY, photoW, photoH);
+            doc.setDrawColor(100, 100, 100);
+            doc.setLineWidth(0.6);
+            doc.rect(photoX, photoY, photoW, photoH);
+        } catch (e) {
+            console.error("Error adding student photo to PDF:", e);
+        }
+    } else {
+        doc.setDrawColor(180, 180, 180);
+        doc.setLineWidth(0.5);
+        if (typeof doc.setLineDashPattern === "function") {
+            doc.setLineDashPattern([3, 3], 0);
+        }
+        doc.rect(photoX, photoY, photoW, photoH);
+        if (typeof doc.setLineDashPattern === "function") {
+            doc.setLineDashPattern([], 0);
+        }
+        doc.setFont("times", "italic");
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text("Student", photoX + photoW / 2, photoY + photoH / 2 - 2, { align: "center" });
+        doc.text("Photo", photoX + photoW / 2, photoY + photoH / 2 + 8, { align: "center" });
+    }
+
+    // ── Title band (left of photo) ──
     const bandW = 230;
     doc.setFillColor(35, 35, 35);
-    doc.roundedRect(pageWidth / 2 - bandW / 2, y - 14, bandW, 26, 5, 5, "F");
+    doc.roundedRect(pageWidth / 2 - bandW / 2 - photoW / 2, y - 14, bandW, 26, 5, 5, "F");
     doc.setFont("times", "bold");
     doc.setFontSize(14);
     doc.setTextColor(255, 255, 255);
-    doc.text("Marksheet and Diploma", pageWidth / 2, y + 4, { align: "center" });
+    doc.text("Marksheet and Diploma", pageWidth / 2 - photoW / 2, y + 4, { align: "center" });
     y += 34;
 
     doc.setFont("times", "italic");
@@ -237,8 +283,8 @@ function generateDiplomaPDF(data) {
 
     const totalMarksColX = tableX + colWidths.sno + colWidths.subject + colWidths.examType;
     const totalMarksColW = colWidths.max + colWidths.min;
-    const midHeaderY = y + headerH / 2; 
-    const singleRowBaselineY = y + headerH / 2 + 3; 
+    const midHeaderY = y + headerH / 2;
+    const singleRowBaselineY = y + headerH / 2 + 3;
 
     let hx = tableX;
     doc.text("S.No", hx + colWidths.sno / 2, singleRowBaselineY, { align: "center" });
@@ -344,30 +390,30 @@ function generateDiplomaPDF(data) {
     doc.text(INSTITUTE_VERIFY_URL, tableX, y);
 
     const sigX2 = tableX + tableW;
-const sigX1 = sigX2 - 170;
+    const sigX1 = sigX2 - 170;
 
-// Signature image, sized to fit above the line while preserving its aspect ratio
-const sigImgW = 130;
-const sigImgH = sigImgW * (150 / 500); // source image is 500x150
-const sigLineY = y + 34;
-doc.addImage(
-    SIGNATURE_IMAGE_BASE64,
-    "PNG",
-    (sigX1 + sigX2) / 2 - sigImgW / 2,
-    sigLineY - 4 - sigImgH - 2,
-    sigImgW,
-    sigImgH
-);
+    // Signature image, sized to fit above the line while preserving its aspect ratio
+    const sigImgW = 130;
+    const sigImgH = sigImgW * (150 / 500); // source image is 500x150
+    const sigLineY = y + 34;
+    doc.addImage(
+        SIGNATURE_IMAGE_BASE64,
+        "PNG",
+        (sigX1 + sigX2) / 2 - sigImgW / 2,
+        sigLineY - 4 - sigImgH - 2,
+        sigImgW,
+        sigImgH
+    );
 
-doc.setDrawColor(60, 60, 60);
-doc.setLineWidth(0.6);
-doc.line(sigX1, sigLineY - 4, sigX2, sigLineY - 4);
-doc.setFont("times", "bold");
-doc.setFontSize(9.5);
-doc.setTextColor(20, 20, 20);
-doc.text(DIRECTOR_NAME, (sigX1 + sigX2) / 2, sigLineY + 10, { align: "center" });
-doc.setFont("times", "normal");
-doc.text(DIRECTOR_TITLE, (sigX1 + sigX2) / 2, sigLineY + 22, { align: "center" });
+    doc.setDrawColor(60, 60, 60);
+    doc.setLineWidth(0.6);
+    doc.line(sigX1, sigLineY - 4, sigX2, sigLineY - 4);
+    doc.setFont("times", "bold");
+    doc.setFontSize(9.5);
+    doc.setTextColor(20, 20, 20);
+    doc.text(DIRECTOR_NAME, (sigX1 + sigX2) / 2, sigLineY + 10, { align: "center" });
+    doc.setFont("times", "normal");
+    doc.text(DIRECTOR_TITLE, (sigX1 + sigX2) / 2, sigLineY + 22, { align: "center" });
     return doc.output("blob");
 }
 
@@ -480,57 +526,57 @@ function SubjectsTable({ subjects, onChange, onAdd, onRemove }) {
 
             <div className="border border-gray-200 rounded-2xl overflow-auto max-h-80">
                 <div className="min-w-[600px]">
-                <div className="grid grid-cols-[2.2fr_1.4fr_0.9fr_0.9fr_0.9fr_40px] bg-gray-50 text-[10px] font-bold text-gray-400 uppercase tracking-wider px-3 py-2">
-                    <span>Subject Name</span>
-                    <span>Exam Type</span>
-                    <span>Max</span>
-                    <span>Obtained</span>
-                    <span></span>
-                </div>
-                {subjects.map((s, i) => (
-                    <div
-                        key={s.id}
-                        className={`grid grid-cols-[2.2fr_1.4fr_0.9fr_0.9fr_0.9fr_40px] gap-2 items-center px-3 py-2 ${i % 2 ? "bg-white" : "bg-gray-50/40"}`}
-                    >
-                        <input
-                            value={s.subject}
-                            onChange={(e) => update(s.id, "subject", e.target.value)}
-                            placeholder="e.g. MS Excel"
-                            className="text-sm font-medium bg-white border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-300"
-                        />
-                        <input
-                            value={s.examType}
-                            onChange={(e) => update(s.id, "examType", e.target.value)}
-                            placeholder="Practical"
-                            className="text-sm font-medium bg-white border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-300"
-                        />
-                        <input
-                            type="number"
-                            value={s.maxMarks}
-                            onChange={(e) => update(s.id, "maxMarks", e.target.value)}
-                            placeholder="100"
-                            className="text-sm font-medium bg-white border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-300"
-                        />
-                        <input
-                            type="number"
-                            value={s.obtainedMarks}
-                            onChange={(e) => update(s.id, "obtainedMarks", e.target.value)}
-                            placeholder="88"
-                            className="text-sm font-medium bg-white border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-300"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => onRemove(s.id)}
-                            disabled={subjects.length === 1}
-                            className="text-gray-300 hover:text-red-500 disabled:opacity-30 disabled:hover:text-gray-300 transition-colors"
-                            title="Remove subject"
-                        >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
+                    <div className="grid grid-cols-[2.2fr_1.4fr_0.9fr_0.9fr_0.9fr_40px] bg-gray-50 text-[10px] font-bold text-gray-400 uppercase tracking-wider px-3 py-2">
+                        <span>Subject Name</span>
+                        <span>Exam Type</span>
+                        <span>Max</span>
+                        <span>Obtained</span>
+                        <span></span>
                     </div>
-                ))}
+                    {subjects.map((s, i) => (
+                        <div
+                            key={s.id}
+                            className={`grid grid-cols-[2.2fr_1.4fr_0.9fr_0.9fr_0.9fr_40px] gap-2 items-center px-3 py-2 ${i % 2 ? "bg-white" : "bg-gray-50/40"}`}
+                        >
+                            <input
+                                value={s.subject}
+                                onChange={(e) => update(s.id, "subject", e.target.value)}
+                                placeholder="e.g. MS Excel"
+                                className="text-sm font-medium bg-white border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                            />
+                            <input
+                                value={s.examType}
+                                onChange={(e) => update(s.id, "examType", e.target.value)}
+                                placeholder="Practical"
+                                className="text-sm font-medium bg-white border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                            />
+                            <input
+                                type="number"
+                                value={s.maxMarks}
+                                onChange={(e) => update(s.id, "maxMarks", e.target.value)}
+                                placeholder="100"
+                                className="text-sm font-medium bg-white border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                            />
+                            <input
+                                type="number"
+                                value={s.obtainedMarks}
+                                onChange={(e) => update(s.id, "obtainedMarks", e.target.value)}
+                                placeholder="88"
+                                className="text-sm font-medium bg-white border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => onRemove(s.id)}
+                                disabled={subjects.length === 1}
+                                className="text-gray-300 hover:text-red-500 disabled:opacity-30 disabled:hover:text-gray-300 transition-colors"
+                                title="Remove subject"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                    ))}
                 </div>
             </div>
         </div>
@@ -629,6 +675,8 @@ export default function UploadDiploma() {
     const [uploading, setUploading] = useState(false);
     const [uploadResult, setUploadResult] = useState(null);  // { path } on success
     const [uploadError, setUploadError] = useState("");
+    const [studentPhotoBase64, setStudentPhotoBase64] = useState(null);
+    const [manualPhotoFile, setManualPhotoFile] = useState(null);
 
     // Debounce timer ref
     const debounceRef = useRef(null);
@@ -636,6 +684,70 @@ export default function UploadDiploma() {
     // ── Clean up debounce + object URL on unmount ───────────────────────────────
     useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
     useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
+
+    // Fetch student photo from bucket — runs for all students, placeholder or not
+    useEffect(() => {
+        if (!student?.roll_number || student?.isPlaceholder) {
+            // Placeholder students have no bucket photo; reset only if not overridden by a manual upload
+            setStudentPhotoBase64(null);
+            setManualPhotoFile(null);
+            return;
+        }
+
+        setManualPhotoFile(null); // clear any prior manual upload when student changes
+        const fetchPhoto = async () => {
+            try {
+                const roll = student.roll_number;
+                const { data: files, error: listError } = await secSupabase.storage
+                    .from("student-photos")
+                    .list("", {
+                        search: roll,
+                    });
+                if (listError) throw listError;
+
+                const file = files?.find(f => f.name.startsWith(`${roll}_`));
+                if (file) {
+                    const { data: urlData, error: signedError } = await secSupabase.storage
+                        .from("student-photos")
+                        .createSignedUrl(file.name, 60 * 60);
+
+                    if (signedError) throw signedError;
+                    if (urlData?.signedUrl) {
+                        const response = await fetch(urlData.signedUrl);
+                        const blob = await response.blob();
+                        const base64 = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result);
+                            reader.onerror = reject;
+                            reader.readAsDataURL(blob);
+                        });
+                        setStudentPhotoBase64(base64);
+                    }
+                } else {
+                    setStudentPhotoBase64(null);
+                }
+            } catch (err) {
+                console.error("Error loading student photo for PDF:", err);
+                setStudentPhotoBase64(null);
+            }
+        };
+
+        fetchPhoto();
+    }, [student?.roll_number, student?.isPlaceholder]);
+
+    // Convert manually uploaded photo file → base64 for placeholder students
+    const handleManualPhotoChange = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) {
+            setManualPhotoFile(null);
+            setStudentPhotoBase64(null);
+            return;
+        }
+        setManualPhotoFile(file);
+        const reader = new FileReader();
+        reader.onloadend = () => setStudentPhotoBase64(reader.result);
+        reader.readAsDataURL(file);
+    };
 
     // ── Step 1: Lookup student ──────────────────────────────────────────────────
     const lookupStudent = useCallback(async (roll) => {
@@ -769,6 +881,10 @@ export default function UploadDiploma() {
             setDetailsError("Student name, father's name, and course are required.");
             return;
         }
+        if (!studentPhotoBase64) {
+            setDetailsError("A student photo is required for the diploma. Please upload one above.");
+            return;
+        }
         setDetailsError("");
         setStep(STEP.GENERATE);
     };
@@ -810,6 +926,7 @@ export default function UploadDiploma() {
                 division: t.division,
                 grade: t.grade,
                 hasMarks: t.hasMarks,
+                studentPhotoBase64,
             });
             const url = URL.createObjectURL(blob);
             setPdfBlob(blob);
@@ -824,7 +941,7 @@ export default function UploadDiploma() {
             setGenerating(false);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [studentNameInput, fatherNameInput, motherName, student, course, courseFrom, courseDuration, marksheetNo, certificateNo, marksheetYear, subjects]);
+    }, [studentNameInput, fatherNameInput, motherName, student, course, courseFrom, courseDuration, marksheetNo, certificateNo, marksheetYear, subjects, studentPhotoBase64]);
 
     // Auto-generate as soon as we land on the generate step
     useEffect(() => {
@@ -899,6 +1016,8 @@ export default function UploadDiploma() {
         setUploading(false);
         setUploadResult(null);
         setUploadError("");
+        setStudentPhotoBase64(null);
+        setManualPhotoFile(null);
     };
 
     // ── Render ──────────────────────────────────────────────────────────────────
@@ -1058,6 +1177,61 @@ export default function UploadDiploma() {
                                 <TextField label="Father's Name" value={fatherNameInput} onChange={(e) => setFatherNameInput(e.target.value)} placeholder="Father's name" />
                                 <TextField label="Mother's Name" value={motherName} onChange={(e) => setMotherName(e.target.value)} placeholder="Mother's name" />
                                 <TextField label="Roll No." value={student?.roll_number || ""} onChange={() => { }} className="opacity-60 pointer-events-none" />
+                            </div>
+
+                            {/* Student Photo — always required */}
+                            <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-2xl space-y-2">
+                                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                    Student Photo
+                                    {studentPhotoBase64 && !manualPhotoFile && (
+                                        <span className="ml-2 font-normal normal-case text-green-600">✓ Loaded from records — upload to replace</span>
+                                    )}
+                                    {!studentPhotoBase64 && (
+                                        <span className="ml-2 font-normal normal-case text-red-500">Required — upload a photo to continue</span>
+                                    )}
+                                    {manualPhotoFile && (
+                                        <span className="ml-2 font-normal normal-case text-purple-600">✓ New photo selected</span>
+                                    )}
+                                </p>
+                                <div className="flex items-center gap-4">
+                                    <label className="flex-1 cursor-pointer">
+                                        <div className={`flex items-center gap-3 bg-white border-2 border-dashed rounded-xl px-4 py-3 hover:border-purple-400 transition-colors ${!studentPhotoBase64 ? "border-red-300" : "border-gray-300"}`}>
+                                            <svg className="w-5 h-5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                            <span className="text-sm font-medium text-gray-600 truncate">
+                                                {manualPhotoFile ? manualPhotoFile.name : "Click to upload / replace photo…"}
+                                            </span>
+                                        </div>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="sr-only"
+                                            onChange={handleManualPhotoChange}
+                                        />
+                                    </label>
+                                    {studentPhotoBase64 && (
+                                        <div className="relative shrink-0">
+                                            <img
+                                                src={studentPhotoBase64}
+                                                alt="Preview"
+                                                className="w-16 h-20 object-cover rounded-lg border-2 border-purple-200 shadow-sm"
+                                            />
+                                            {manualPhotoFile && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setManualPhotoFile(null); setStudentPhotoBase64(null); }}
+                                                    className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                                                    title="Remove uploaded photo"
+                                                >
+                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
