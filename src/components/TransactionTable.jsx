@@ -21,14 +21,35 @@ export default function TransactionTable() {
   const [editForm, setEditForm] = useState(null);
 
   const { branch, role } = useAuth();
+  const [selectedBranch, setSelectedBranch] = useState(
+    branch?.toLowerCase() === "all" ? "all" : branch
+  );
+  const [allBranches, setAllBranches] = useState(["main", "second", "third", "agra"]);
   const limit = 50;
 
-  function getBranchPrefix(branch) {
-    if (!branch || branch === "all") return "";
-    return branch.charAt(0).toLowerCase() + "_";
+  useEffect(() => {
+    if (branch?.toLowerCase() === "all") {
+      const fetchBranches = async () => {
+        const { data, error } = await supabase
+          .from("students")
+          .select("branch", { distinct: true });
+
+        if (!error && data) {
+          const unique = [...new Set([...data.map((b) => b?.branch).filter(Boolean), "main", "second", "third", "agra"])];
+          setAllBranches(unique);
+        }
+      };
+      fetchBranches();
+    }
+  }, [branch]);
+
+  function getBranchPrefix(b) {
+    if (!b || b === "all") return "";
+    return b.charAt(0).toLowerCase() + "_";
   }
 
-  const branchPrefix = getBranchPrefix(branch);
+  const activeBranch = branch?.toLowerCase() === "all" ? selectedBranch : branch;
+  const branchPrefix = getBranchPrefix(activeBranch);
 
   // 🚀 MAIN FETCH
   const fetchTransactions = useCallback(async () => {
@@ -114,10 +135,31 @@ export default function TransactionTable() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-        <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">Transaction History</h1>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3 flex-wrap">
+          <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">Transaction History</h1>
           <Badge variant="purple">{transactions.length} items</Badge>
+        </div>
+
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <label className="text-sm font-semibold text-gray-700 whitespace-nowrap">Branch:</label>
+          {branch?.toLowerCase() === "all" ? (
+            <select
+              className="border rounded-lg px-3 py-2 text-sm bg-gray-50 outline-none focus:ring-2 focus:ring-purple-500 transition w-full sm:w-auto"
+              value={selectedBranch}
+              onChange={(e) => {
+                setSelectedBranch(e.target.value);
+                setPage(0);
+              }}
+            >
+              <option value="all">All Branches</option>
+              {allBranches.map((b) => (
+                <option value={b} key={b}>{b.toUpperCase()}</option>
+              ))}
+            </select>
+          ) : (
+            <div className="text-sm font-bold text-purple-600 bg-purple-50 px-3 py-1 rounded-full uppercase tracking-wider">{branch}</div>
+          )}
         </div>
       </div>
 

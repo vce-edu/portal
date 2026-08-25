@@ -226,6 +226,7 @@ export default function Status() {
                 { value: "main", label: "Main Office" },
                 { value: "second", label: "Second Unit" },
                 { value: "third", label: "Third Unit" },
+                { value: "agra", label: "Agra Unit" },
               ]}
             />
           </div>
