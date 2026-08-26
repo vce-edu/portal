@@ -172,11 +172,11 @@ const printReceipt = (receipt) => {
             </div>
             <div class="detail-item">
               <span class="label">Student Name:</span>
-              <span class="value" style="font-weight: 700;">${receipt.student_name.toUpperCase()}</span>
+              <span class="value" style="font-weight: 700;">${(receipt.student_name || "").toUpperCase()}</span>
             </div>
             <div class="detail-item">
               <span class="label">Roll Number:</span>
-              <span class="value" style="font-weight: 700; font-family: monospace;">${receipt.roll_no.toUpperCase()}</span>
+              <span class="value" style="font-weight: 700; font-family: monospace;">${(receipt.roll_no || "").toUpperCase()}</span>
             </div>
             <div class="detail-item">
               <span class="label">Father's Name:</span>
@@ -252,6 +252,7 @@ export default function Fees() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [selectedRoll, setSelectedRoll] = useState("");
   const [feesHistory, setFeesHistory] = useState([]);
+  const [historyStudentInfo, setHistoryStudentInfo] = useState(null);
   const [historyPage, setHistoryPage] = useState(0);
   const [hasMoreHistory, setHasMoreHistory] = useState(false);
   const [successReceipt, setSuccessReceipt] = useState(null);
@@ -484,26 +485,39 @@ export default function Fees() {
       const from = page * HISTORY_PAGE_LIMIT;
       const to = from + HISTORY_PAGE_LIMIT - 1;
 
-      const { data, error } = await supabase
-        .from("transaction")
-        .select("id, paid_on, receipt_no, amount_paid, student_name")
-        .eq("roll_no", roll)
-        .order("id", { ascending: false }) // use id ordering to be deterministic; keep date untouched
-        .range(from, to);
+      const [transRes, studentRes] = await Promise.all([
+        supabase
+          .from("transaction")
+          .select("id, paid_on, receipt_no, amount_paid, student_name, roll_no, father_name")
+          .eq("roll_no", roll)
+          .order("id", { ascending: false })
+          .range(from, to),
+        page === 0
+          ? supabase
+              .from("students")
+              .select("course, batch_time, father_name")
+              .eq("roll_number", roll)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+      ]);
 
-      if (error) {
-        alert("Failed to fetch fees history: " + error.message);
+      if (transRes.error) {
+        alert("Failed to fetch fees history: " + transRes.error.message);
         return;
       }
 
       if (page === 0) {
-        setFeesHistory(data);
+        setFeesHistory(transRes.data);
+        if (studentRes?.data) {
+          setHistoryStudentInfo(studentRes.data);
+        } else {
+          setHistoryStudentInfo(null);
+        }
       } else {
-        setFeesHistory((prev) => [...prev, ...data]);
+        setFeesHistory((prev) => [...prev, ...transRes.data]);
       }
 
-      // if returned rows == page limit, we might have more
-      setHasMoreHistory(data.length === HISTORY_PAGE_LIMIT);
+      setHasMoreHistory(transRes.data.length === HISTORY_PAGE_LIMIT);
       setHistoryPage(page);
     } catch (err) {
       console.error("fetchFeesHistory:", err);
@@ -702,14 +716,39 @@ export default function Fees() {
                 <TH>Date</TH>
                 <TH>Receipt</TH>
                 <TH>Amount</TH>
+                <TH className="text-right">Action</TH>
               </TR>
             </THead>
             <TBody>
               {feesHistory.map((f) => (
-                <TR key={f.id}>
+                <TR key={f.id} className="group hover:bg-purple-50/50 transition-colors">
                   <TD className="text-gray-600 font-medium">{f.paid_on}</TD>
                   <TD className="text-gray-500">{f.receipt_no || "-"}</TD>
                   <TD><Badge variant="green">₹{f.amount_paid}</Badge></TD>
+                  <TD className="text-right">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        printReceipt({
+                          ...f,
+                          roll_no: f.roll_no || selectedRoll,
+                          father_name: f.father_name || historyStudentInfo?.father_name,
+                          course: historyStudentInfo?.course,
+                          batch_time: renderBatchTime(historyStudentInfo?.batch_time),
+                        })
+                      }
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-purple-600 hover:text-purple-800 hover:bg-purple-50 border-purple-200 py-1 px-2.5 text-xs font-semibold"
+                      title="Print Receipt"
+                      icon={() => (
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                        </svg>
+                      )}
+                    >
+                      Print
+                    </Button>
+                  </TD>
                 </TR>
               ))}
             </TBody>
