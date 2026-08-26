@@ -42,7 +42,7 @@ function makeEmptySubject() {
         subject: "",
         examType: "",
         maxMarks: "",
-        minMarks: 0,
+        minMarks: "",
         obtainedMarks: "",
     };
 }
@@ -310,8 +310,10 @@ function generateDiplomaPDF(data) {
     doc.setFont("times", "normal");
     doc.setFontSize(9);
     let ry = y + headerH;
+    const obtainedColX = tableX + colWidths.sno + colWidths.subject + colWidths.examType + colWidths.max + colWidths.min;
+
     subjects.forEach((s, i) => {
-        if (i > 0) doc.line(tableX, ry, tableX + tableW, ry);
+        if (i > 0) doc.line(tableX, ry, obtainedColX, ry);
         const rowMidY = ry + rowH / 2 + 3;
         let rx = tableX;
         doc.text(String(i + 1), rx + colWidths.sno / 2, rowMidY, { align: "center" });
@@ -323,10 +325,14 @@ function generateDiplomaPDF(data) {
         doc.text(s.maxMarks !== "" && s.maxMarks != null ? String(s.maxMarks) : "—", rx + colWidths.max / 2, rowMidY, { align: "center" });
         rx += colWidths.max;
         doc.text(s.minMarks !== "" && s.minMarks != null ? String(s.minMarks) : "—", rx + colWidths.min / 2, rowMidY, { align: "center" });
-        rx += colWidths.min;
-        doc.text(s.obtainedMarks !== "" && s.obtainedMarks != null ? String(s.obtainedMarks) : "—", rx + colWidths.obtained / 2, rowMidY, { align: "center" });
         ry += rowH;
     });
+
+    // Single centered merged text for "Obtain Marks" column (e.g. 140/200)
+    const obtainedText = `${data.totalObtained ?? 0}/${data.totalMax ?? 0}`;
+    const bodyCenterY = y + headerH + (rowH * subjects.length) / 2 + 3;
+    doc.setFont("times", "bold");
+    doc.text(obtainedText, obtainedColX + colWidths.obtained / 2, bodyCenterY, { align: "center" });
 
     y = y + headerH + rowH * subjects.length + 22;
 
@@ -526,17 +532,17 @@ function SubjectsTable({ subjects, onChange, onAdd, onRemove }) {
 
             <div className="border border-gray-200 rounded-2xl overflow-auto max-h-80">
                 <div className="min-w-[600px]">
-                    <div className="grid grid-cols-[2.2fr_1.4fr_0.9fr_0.9fr_0.9fr_40px] bg-gray-50 text-[10px] font-bold text-gray-400 uppercase tracking-wider px-3 py-2">
+                    <div className="grid grid-cols-[2.5fr_1.5fr_1fr_1fr_40px] bg-gray-50 text-[10px] font-bold text-gray-400 uppercase tracking-wider px-3 py-2">
                         <span>Subject Name</span>
                         <span>Exam Type</span>
                         <span>Max</span>
-                        <span>Obtained</span>
+                        <span>Min (Scored)</span>
                         <span></span>
                     </div>
                     {subjects.map((s, i) => (
                         <div
                             key={s.id}
-                            className={`grid grid-cols-[2.2fr_1.4fr_0.9fr_0.9fr_0.9fr_40px] gap-2 items-center px-3 py-2 ${i % 2 ? "bg-white" : "bg-gray-50/40"}`}
+                            className={`grid grid-cols-[2.5fr_1.5fr_1fr_1fr_40px] gap-2 items-center px-3 py-2 ${i % 2 ? "bg-white" : "bg-gray-50/40"}`}
                         >
                             <input
                                 value={s.subject}
@@ -559,9 +565,9 @@ function SubjectsTable({ subjects, onChange, onAdd, onRemove }) {
                             />
                             <input
                                 type="number"
-                                value={s.obtainedMarks}
-                                onChange={(e) => update(s.id, "obtainedMarks", e.target.value)}
-                                placeholder="88"
+                                value={s.minMarks}
+                                onChange={(e) => update(s.id, "minMarks", e.target.value)}
+                                placeholder="80"
                                 className="text-sm font-medium bg-white border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-300"
                             />
                             <button
