@@ -324,6 +324,44 @@ export default function Fees() {
     fetchStudentByRoll(selectedRoll);
   };
 
+  // Helper: auto-generate receipt number based on roll prefix (e.g. m_890 -> m_1001)
+  const generateReceiptNo = async (roll) => {
+    if (!roll) return "";
+    const trimmed = roll.trim();
+    const match = trimmed.match(/^([a-zA-Z]+_?)/);
+    if (!match) return "";
+    let prefix = match[1].toLowerCase();
+    if (!prefix.endsWith("_")) prefix += "_";
+
+    try {
+      const { data, error } = await supabase
+        .from("transaction")
+        .select("receipt_no")
+        .ilike("receipt_no", `${prefix}%`)
+        .order("id", { ascending: false })
+        .limit(200);
+
+      let maxNum = 0;
+      if (!error && data && data.length > 0) {
+        data.forEach((row) => {
+          if (row.receipt_no) {
+            const numStr = row.receipt_no.slice(prefix.length);
+            const num = parseInt(numStr, 10);
+            if (!isNaN(num) && num > maxNum) {
+              maxNum = num;
+            }
+          }
+        });
+      }
+
+      const nextNum = maxNum > 0 ? maxNum + 1 : 1001;
+      return `${prefix}${nextNum}`;
+    } catch (err) {
+      console.error("Error generating receipt number:", err);
+      return `${prefix}1001`;
+    }
+  };
+
   // ------------------------------
   // Fetch single student by roll (DEBOUNCED CALLER)
   // ------------------------------
@@ -344,15 +382,20 @@ export default function Fees() {
 
     setLoadingStudent(true);
     try {
-      const { data, error } = await supabase
-        .from("students")
-        .select("student_name, father_name, fee_month, course, batch_time")
-        .eq("roll_number", roll)
-        .limit(1)
-        .single();
+      const [studentRes, autoReceipt] = await Promise.all([
+        supabase
+          .from("students")
+          .select("student_name, father_name, fee_month, course, batch_time")
+          .eq("roll_number", roll)
+          .limit(1)
+          .single(),
+        generateReceiptNo(roll)
+      ]);
 
-      if (error) {
-        // If no row found, just clear details (don't spam user)
+      const data = studentRes.data;
+
+      if (studentRes.error || !data) {
+        // If no row found, just clear student details but set auto-generated receipt
         setForm((prev) => ({
           ...prev,
           student: "",
@@ -360,9 +403,9 @@ export default function Fees() {
           course: "",
           batchTime: "",
           amount: "",
-          receipt: "",
+          receipt: autoReceipt || prev.receipt || "",
         }));
-      } else if (data) {
+      } else {
         setForm((prev) => ({
           ...prev,
           student: data.student_name,
@@ -370,7 +413,7 @@ export default function Fees() {
           course: data.course,
           batchTime: renderBatchTime(data.batch_time),
           amount: data.fee_month ?? prev.amount,
-          receipt: "",
+          receipt: autoReceipt || prev.receipt || "",
         }));
       }
     } catch (err) {

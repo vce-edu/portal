@@ -79,6 +79,44 @@ export default function Status() {
 
 
 
+  // Helper: auto-generate receipt number based on roll prefix (e.g. m_890 -> m_1001)
+  const generateReceiptNo = async (roll) => {
+    if (!roll) return "";
+    const trimmed = roll.trim();
+    const match = trimmed.match(/^([a-zA-Z]+_?)/);
+    if (!match) return "";
+    let prefix = match[1].toLowerCase();
+    if (!prefix.endsWith("_")) prefix += "_";
+
+    try {
+      const { data, error } = await supabase
+        .from("transaction")
+        .select("receipt_no")
+        .ilike("receipt_no", `${prefix}%`)
+        .order("id", { ascending: false })
+        .limit(200);
+
+      let maxNum = 0;
+      if (!error && data && data.length > 0) {
+        data.forEach((row) => {
+          if (row.receipt_no) {
+            const numStr = row.receipt_no.slice(prefix.length);
+            const num = parseInt(numStr, 10);
+            if (!isNaN(num) && num > maxNum) {
+              maxNum = num;
+            }
+          }
+        });
+      }
+
+      const nextNum = maxNum > 0 ? maxNum + 1 : 1001;
+      return `${prefix}${nextNum}`;
+    } catch (err) {
+      console.error("Error generating receipt number:", err);
+      return `${prefix}1001`;
+    }
+  };
+
   // ----------------------------------------------------
   // LOAD ALL STUDENTS ONCE (NOT EVERY MODAL OPEN)
   // ----------------------------------------------------
@@ -92,6 +130,7 @@ export default function Status() {
     if (error) return null;
     return data;
   }
+
 
 
   // ----------------------------------------------------
@@ -164,15 +203,17 @@ export default function Status() {
     setForm((prev) => ({ ...prev, [name]: value }));
 
     if (name === "roll" && value) {
-      fetchStudentByRoll(value).then((s) => {
-        if (!s) return;
-
+      Promise.all([
+        fetchStudentByRoll(value),
+        generateReceiptNo(value)
+      ]).then(([s, autoReceipt]) => {
         setForm((prev) => ({
           ...prev,
           roll: value,
-          student: s.student_name,
-          father: s.father_name,
-          amount: s.fee_month,
+          student: s?.student_name || prev.student,
+          father: s?.father_name || prev.father,
+          amount: s?.fee_month || prev.amount,
+          receipt: autoReceipt || prev.receipt,
         }));
       });
     }
@@ -366,13 +407,16 @@ export default function Status() {
                           variant="success"
                           className="bg-green-50 text-green-700 hover:bg-green-100 border-none shadow-none"
                           onClick={async () => {
-                            const s = await fetchStudentByRoll(r.roll_number);
+                            const [s, autoReceipt] = await Promise.all([
+                              fetchStudentByRoll(r.roll_number),
+                              generateReceiptNo(r.roll_number)
+                            ]);
                             setForm({
                               roll: r.roll_number,
                               student: s?.student_name || r.student_name,
                               father: s?.father_name || r.father_name || "",
                               amount: s?.fee_month || "",
-                              receipt: "",
+                              receipt: autoReceipt || "",
                               paidOn: today,
                             });
                             setOpen(true);
