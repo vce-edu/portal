@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "../createClient";
+import { renderBatchTime } from "../components/ui/BatchTimePicker";
 import {
   LineChart,
   Line,
@@ -103,6 +104,7 @@ export default function Revenue() {
   const [selectedBranch, setSelectedBranch] = useState("Total (All Branches)");
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [prevTransactions, setPrevTransactions] = useState([]);
 
@@ -297,28 +299,110 @@ export default function Revenue() {
 
   // ─── Actions ───────────────────────────────────────────────────────────────
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     if (transactions.length === 0) return alert("No data to export");
 
-    const headers = ["Receipt", "Roll Number", "Student Name", "Amount", "Date"];
-    const rows = transactions.map(t => [
-      t.receipt_no,
-      t.roll_no,
-      t.student_name,
-      t.amount_paid,
-      t.paid_on
-    ]);
+    setExporting(true);
+    try {
+      const uniqueRolls = [...new Set(transactions.map((t) => t.roll_no).filter(Boolean))];
+      const studentMap = {};
 
-    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `revenue_report_${rangeType.replace(/\s+/g, '_').toLowerCase()}.csv`);
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      if (uniqueRolls.length > 0) {
+        const chunkSize = 500;
+        for (let i = 0; i < uniqueRolls.length; i += chunkSize) {
+          const chunk = uniqueRolls.slice(i, i + chunkSize);
+          const [activeRes, breakRes] = await Promise.all([
+            supabase
+              .from("students")
+              .select("roll_number, father_name, mother_name, course, address, phone_number, batch_time, addmission_date, branch")
+              .in("roll_number", chunk),
+            supabase
+              .from("break_students")
+              .select("roll_number, father_name, mother_name, course, address, phone_number, batch_time, addmission_date, branch")
+              .in("roll_number", chunk),
+          ]);
+
+          if (activeRes.data) {
+            activeRes.data.forEach((s) => {
+              studentMap[s.roll_number] = s;
+            });
+          }
+          if (breakRes.data) {
+            breakRes.data.forEach((s) => {
+              if (!studentMap[s.roll_number]) {
+                studentMap[s.roll_number] = s;
+              }
+            });
+          }
+        }
+      }
+
+      const headers = [
+        "Receipt",
+        "Roll Number",
+        "Student Name",
+        "Father's Name",
+        "Mother's Name",
+        "Course",
+        "Batch Time",
+        "Phone Number",
+        "Address",
+        "Admission Date",
+        "Branch",
+        "Amount",
+        "Date"
+      ];
+
+      const escapeCSV = (val) => {
+        if (val === null || val === undefined) return '""';
+        const str = String(val);
+        return `"${str.replace(/"/g, '""')}"`;
+      };
+
+      const rows = transactions.map((t) => {
+        const studentInfo = studentMap[t.roll_no] || {};
+        const fatherName = t.father_name || studentInfo.father_name || "";
+        const motherName = studentInfo.mother_name || "";
+        const course = studentInfo.course || "";
+        const batchTime = renderBatchTime(studentInfo.batch_time) || "";
+        const phone = studentInfo.phone_number || "";
+        const address = studentInfo.address || "";
+        const admissionDate = studentInfo.addmission_date || "";
+        const branch = studentInfo.branch || "";
+
+        return [
+          escapeCSV(t.receipt_no),
+          escapeCSV(t.roll_no),
+          escapeCSV(t.student_name),
+          escapeCSV(fatherName),
+          escapeCSV(motherName),
+          escapeCSV(course),
+          escapeCSV(batchTime),
+          escapeCSV(phone),
+          escapeCSV(address),
+          escapeCSV(admissionDate),
+          escapeCSV(branch),
+          escapeCSV(t.amount_paid),
+          escapeCSV(t.paid_on)
+        ];
+      });
+
+      const csvContent = [headers.map(escapeCSV).join(","), ...rows.map((e) => e.join(","))].join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `revenue_report_${rangeType.replace(/\s+/g, '_').toLowerCase()}.csv`);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error("Error exporting CSV:", err);
+      alert("Failed to export CSV: " + (err.message || "Unknown error"));
+    } finally {
+      setExporting(false);
+    }
   };
 
   const formatPeakDay = (dateStr) => {
@@ -404,10 +488,10 @@ export default function Revenue() {
           <Button variant="secondary" size="md" className="rounded-2xl shadow-sm" onClick={() => window.print()}>
             Print Report
           </Button>
-          <Button variant="success" size="md" className="rounded-2xl shadow-sm" onClick={handleExportCSV} icon={() => (
+          <Button variant="success" size="md" className="rounded-2xl shadow-sm" onClick={handleExportCSV} disabled={exporting} icon={() => (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
           )}>
-            Export CSV
+            {exporting ? "Exporting..." : "Export CSV"}
           </Button>
         </div>
       </div>
