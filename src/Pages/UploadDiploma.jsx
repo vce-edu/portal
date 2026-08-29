@@ -245,9 +245,9 @@ function generateDiplomaPDF(data) {
     const tableX = inner + 20;
     const tableW = pageWidth - inner * 2 - 40;
     const colWidths = {
-        sno: tableW * 0.08,
-        subject: tableW * 0.33,
-        examType: tableW * 0.19,
+        sno: tableW * 0.05,
+        subject: tableW * 0.25,
+        examType: tableW * 0.30,
         max: tableW * 0.13,
         min: tableW * 0.13,
         obtained: tableW * 0.14,
@@ -318,9 +318,12 @@ function generateDiplomaPDF(data) {
         let rx = tableX;
         doc.text(String(i + 1), rx + colWidths.sno / 2, rowMidY, { align: "center" });
         rx += colWidths.sno;
+        doc.setFontSize(9);
         doc.text(s.subject || "—", rx + 6, rowMidY);
         rx += colWidths.subject;
+        doc.setFontSize(5.5);
         doc.text(s.examType || "—", rx + colWidths.examType / 2, rowMidY, { align: "center" });
+        doc.setFontSize(9);
         rx += colWidths.examType;
         doc.text(s.maxMarks !== "" && s.maxMarks != null ? String(s.maxMarks) : "—", rx + colWidths.max / 2, rowMidY, { align: "center" });
         rx += colWidths.max;
@@ -334,24 +337,28 @@ function generateDiplomaPDF(data) {
     doc.setFont("times", "bold");
     doc.text(obtainedText, obtainedColX + colWidths.obtained / 2, bodyCenterY, { align: "center" });
 
-    y = y + headerH + rowH * subjects.length + 22;
+    y = y + headerH + rowH * subjects.length + 14;
 
     // ── Totals / percentage / division / grade ──
+    const summaryTextY = y;
     doc.setFont("times", "italic");
-    doc.setFontSize(10.5);
+    doc.setFontSize(10);
     doc.setTextColor(40, 40, 40);
     doc.text(
         `YOUR OBTAINED TOTAL MARKS ${data.totalObtained ?? 0} FROM ${data.totalMax ?? 0}`,
         tableX,
-        y
+        summaryTextY
     );
-    y += 20;
     doc.text(
-        `PERCENTAGE ${data.hasMarks ? data.percentage.toFixed(2) + "%" : "—"}   DIVISION ${data.division}   GRADE ${data.grade}`,
+        `PERCENTAGE ${data.hasMarks ? data.percentage.toFixed(2) + "%" : "—"}`,
         tableX,
-        y
+        summaryTextY + 15
     );
-    y += 18;
+    doc.text(
+        `DIVISION ${data.division}   GRADE ${data.grade}`,
+        tableX,
+        summaryTextY + 30
+    );
 
     // ── Classification of grade (small static table, bottom right) ──
     const classifyRows = [
@@ -362,11 +369,11 @@ function generateDiplomaPDF(data) {
         ["33% ABOVE", "C", "3rd DIVISION"],
         ["33% BELOW", "-", "FAIL"],
     ];
-    const clW = 240;
+    const clW = 220;
     const clColW = [clW * 0.4, clW * 0.25, clW * 0.35];
-    const clRowH = 13;
+    const clRowH = 12.5;
     const clX = tableX + tableW - clW;
-    let clY = y + 4;
+    let clY = summaryTextY + 8;
     doc.setLineWidth(0.5);
     doc.setDrawColor(90, 90, 90);
     doc.rect(clX, clY, clW, clRowH * classifyRows.length);
@@ -383,43 +390,43 @@ function generateDiplomaPDF(data) {
         doc.setFont("times", i === 0 ? "bold" : "normal");
         let tx = clX;
         row.forEach((cell, j) => {
-            doc.text(cell, tx + clColW[j] / 2, rowY + 9.5, { align: "center" });
+            doc.text(cell, tx + clColW[j] / 2, rowY + 9, { align: "center" });
             tx += clColW[j];
         });
     });
-    y = clY + clRowH * classifyRows.length + 26;
+    y = clY + clRowH * classifyRows.length + 18;
 
     // ── Footer: verification + signature ──
     doc.setFont("times", "normal");
     doc.setFontSize(9);
     doc.setTextColor(70, 70, 70);
-    doc.text(INSTITUTE_VERIFY_URL, tableX, y);
+    doc.text(INSTITUTE_VERIFY_URL, tableX, y + 10);
 
     const sigX2 = tableX + tableW;
-    const sigX1 = sigX2 - 170;
+    const sigX1 = sigX2 - 160;
 
     // Signature image, sized to fit above the line while preserving its aspect ratio
-    const sigImgW = 130;
+    const sigImgW = 120;
     const sigImgH = sigImgW * (150 / 500); // source image is 500x150
-    const sigLineY = y + 34;
+    const sigLineY = y + 20;
     doc.addImage(
         SIGNATURE_IMAGE_BASE64,
         "PNG",
         (sigX1 + sigX2) / 2 - sigImgW / 2,
-        sigLineY - 4 - sigImgH - 2,
+        sigLineY - 2 - sigImgH,
         sigImgW,
         sigImgH
     );
 
     doc.setDrawColor(60, 60, 60);
     doc.setLineWidth(0.6);
-    doc.line(sigX1, sigLineY - 4, sigX2, sigLineY - 4);
+    doc.line(sigX1, sigLineY - 2, sigX2, sigLineY - 2);
     doc.setFont("times", "bold");
     doc.setFontSize(9.5);
     doc.setTextColor(20, 20, 20);
-    doc.text(DIRECTOR_NAME, (sigX1 + sigX2) / 2, sigLineY + 10, { align: "center" });
+    doc.text(DIRECTOR_NAME, (sigX1 + sigX2) / 2, sigLineY + 7, { align: "center" });
     doc.setFont("times", "normal");
-    doc.text(DIRECTOR_TITLE, (sigX1 + sigX2) / 2, sigLineY + 22, { align: "center" });
+    doc.text(DIRECTOR_TITLE, (sigX1 + sigX2) / 2, sigLineY + 16, { align: "center" });
     return doc.output("blob");
 }
 
@@ -536,7 +543,7 @@ function SubjectsTable({ subjects, onChange, onAdd, onRemove }) {
 
             <div className="border border-gray-200 rounded-2xl overflow-auto max-h-80">
                 <div className="min-w-[600px]">
-                    <div className="grid grid-cols-[2.5fr_1.5fr_1fr_1fr_40px] bg-gray-50 text-[10px] font-bold text-gray-400 uppercase tracking-wider px-3 py-2">
+                    <div className="grid grid-cols-[1.4fr_2.8fr_1fr_1fr_40px] bg-gray-50 text-[10px] font-bold text-gray-400 uppercase tracking-wider px-3 py-2">
                         <span>Subject Name</span>
                         <span>Exam Type</span>
                         <span>Max</span>
@@ -546,7 +553,7 @@ function SubjectsTable({ subjects, onChange, onAdd, onRemove }) {
                     {subjects.map((s, i) => (
                         <div
                             key={s.id}
-                            className={`grid grid-cols-[2.5fr_1.5fr_1fr_1fr_40px] gap-2 items-center px-3 py-2 ${i % 2 ? "bg-white" : "bg-gray-50/40"}`}
+                            className={`grid grid-cols-[1.4fr_2.8fr_1fr_1fr_40px] gap-2 items-center px-3 py-2 ${i % 2 ? "bg-white" : "bg-gray-50/40"}`}
                         >
                             <input
                                 value={s.subject}
@@ -558,7 +565,7 @@ function SubjectsTable({ subjects, onChange, onAdd, onRemove }) {
                                 value={s.examType}
                                 onChange={(e) => update(s.id, "examType", e.target.value)}
                                 placeholder="Practical"
-                                className="text-sm font-medium bg-white border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                                className="text-[9px] font-medium bg-white border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-300"
                             />
                             <input
                                 type="number"
