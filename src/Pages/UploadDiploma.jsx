@@ -79,7 +79,7 @@ function classify(percentage, hasMarks) {
 
 function computeTotals(subjects) {
     const totalMax = subjects.reduce((sum, s) => sum + toNumber(s.maxMarks), 0);
-    const totalObtained = subjects.reduce((sum, s) => sum + toNumber(s.obtainedMarks), 0);
+    const totalObtained = subjects.reduce((sum, s) => sum + toNumber(s.obtainedMarks || s.minMarks), 0);
     const hasMarks = totalMax > 0;
     const percentage = hasMarks ? (totalObtained / totalMax) * 100 : 0;
     const { grade, division } = classify(percentage, hasMarks);
@@ -520,7 +520,11 @@ function TextField({ label, value, onChange, placeholder, className = "" }) {
 
 function SubjectsTable({ subjects, onChange, onAdd, onRemove }) {
     const update = (id, field, value) => {
-        onChange(subjects.map((s) => (s.id === id ? { ...s, [field]: value } : s)));
+        onChange(
+            subjects.map((s) =>
+                s.id === id ? { ...s, [field]: value, ...(field === "minMarks" ? { obtainedMarks: value } : {}) } : s
+            )
+        );
     };
 
     return (
