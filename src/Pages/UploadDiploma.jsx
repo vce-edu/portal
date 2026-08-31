@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import jsPDF from "jspdf";
+import QRCode from "qrcode";
 import { supabase, secSupabase } from "../createClient";
 import { useAuth } from "../context/AuthContext";
 import Button from "../components/ui/Button";
@@ -87,8 +88,16 @@ function computeTotals(subjects) {
 }
 
 // Generates the Marksheet & Diploma certificate PDF and returns a Blob.
-function generateDiplomaPDF(data) {
+async function generateDiplomaPDF(data) {
     const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+
+    // Pre-generate QR code for diploma verification URL
+    const DIPLOMA_QR_URL = "https://vintecheducation.org/diploma.html";
+    const qrDataUrl = await QRCode.toDataURL(DIPLOMA_QR_URL, {
+        width: 256,
+        margin: 1,
+        color: { dark: "#1a1a1a", light: "#ffffff" },
+    });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 26;
@@ -396,11 +405,19 @@ function generateDiplomaPDF(data) {
     });
     y = clY + clRowH * classifyRows.length + 18;
 
-    // ── Footer: verification + signature ──
+    // ── Footer: QR code (left) + verification URL + signature (right) ──
+    const qrSize = 56;
+    const qrX = tableX;
+    const qrY = y + 2;
+    doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
+
+    // Verification URL below QR
     doc.setFont("times", "normal");
-    doc.setFontSize(9);
+    doc.setFontSize(7);
     doc.setTextColor(70, 70, 70);
-    doc.text(INSTITUTE_VERIFY_URL, tableX, y + 10);
+    doc.text("Scan to verify", qrX + qrSize / 2, qrY + qrSize + 8, { align: "center" });
+    doc.setFontSize(9);
+    doc.text(INSTITUTE_VERIFY_URL, qrX + qrSize + 8, y + 10);
 
     const sigX2 = tableX + tableW;
     const sigX1 = sigX2 - 160;
@@ -917,7 +934,7 @@ export default function UploadDiploma() {
     };
 
     // ── Step 4: Generate diploma PDF ────────────────────────────────────────────
-    const runGenerate = useCallback(() => {
+    const runGenerate = useCallback(async () => {
         setGenerating(true);
         setGenerateError("");
         setUploadResult(null);
@@ -925,7 +942,7 @@ export default function UploadDiploma() {
 
         try {
             const t = computeTotals(subjects);
-            const blob = generateDiplomaPDF({
+            const blob = await generateDiplomaPDF({
                 studentName: studentNameInput,
                 fatherName: fatherNameInput,
                 motherName,
