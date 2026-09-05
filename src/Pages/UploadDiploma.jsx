@@ -71,10 +71,10 @@ function formatAdmissionDate(raw) {
 // Derives grade + division from a percentage, matching the classification table
 function classify(percentage, hasMarks) {
     if (!hasMarks) return { grade: "—", division: "—" };
-    if (percentage >= 85) return { grade: "A+", division: "Distinction" };
-    if (percentage >= 60) return { grade: "A", division: "1st Division" };
-    if (percentage >= 45) return { grade: "B", division: "2nd Division" };
-    if (percentage >= 33) return { grade: "C", division: "3rd Division" };
+    if (percentage >= 85) return { grade: "A+", division: "DISTINCTION" };
+    if (percentage >= 60) return { grade: "A", division: "1st DIVISION" };
+    if (percentage >= 45) return { grade: "B", division: "2nd DIVISION" };
+    if (percentage >= 33) return { grade: "C", division: "3rd DIVISION" };
     return { grade: "F", division: "Fail" };
 }
 
